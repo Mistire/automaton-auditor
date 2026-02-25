@@ -8,3 +8,18 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Secrets — NEVER commit real keys
+.env
+
+# Sandboxed repo clones (created by tempfile during audits)
+tmp_repos/
+/tmp/auditor_*
+
+# Logs and runtime artifacts
+logs/
+*.log
+
+# OS artifacts
+.DS_Store
+Thumbs.db
