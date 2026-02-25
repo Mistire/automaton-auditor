@@ -118,6 +118,25 @@ uv run python main.py https://github.com/Mistire/automaton-auditor
 
 Expected output: structured evidence summary with ✅/❌ indicators per forensic finding.
 
+## Operational Notes
+
+### Logging & Tracing
+
+- **Console Output**: Real-time progress and a summary of forensic evidence.
+- **LangSmith Tracing**: If enabled via `.env`, all LLM interactions and graph execution steps are logged to your LangSmith project for inspection.
+- **Sandboxing**: Temporary directories created for cloning are automatically cleaned up after the audit.
+
+### Report Locations
+
+- **Rubric**: The source of truth for audit logic is `rubric/week2_rubric.json`.
+- **Interim Report**: Architectural documentation and implementation status are in `reports/interim_report.md`.
+- **Audit Outputs**: Generated reports (for final submission) should be placed in the `audit/` directory.
+
+### Typical Runtime
+
+- **Detective Audit**: Expect **30-90 seconds** per run, depending on the network speed for `git clone` and the size of the target repository.
+- **API Limits**: The free tier of Gemini has rate limits; the system handles these gracefully but massive repositories may hit throttling.
+
 ## Project Structure
 
 ```
