@@ -52,16 +52,28 @@ graph TD
     START -->|parallel| DA[DocAnalyst]
     START -->|parallel| VI[VisionInspector]
 
-    RI -->|conditional| CHECK{Evidence exists?}
-    DA -->|conditional| CHECK
-    VI -->|conditional| CHECK
+    %% Detective Layer (Current)
+    RI -->|Dict: evidences.repo| CHECK{Evidence exists?}
+    DA -->|Dict: evidences.doc| CHECK
+    VI -->|Dict: evidences.vision| CHECK
 
     CHECK -->|yes| AGG[EvidenceAggregator]
     CHECK -->|no| ABORT[Abort Node]
 
-    AGG -->|sufficient| END((END))
-    AGG -->|insufficient| END((END - Warning))
-    ABORT --> END
+    AGG -->|AgentState| J_SPLIT{Sufficient Evidence?}
+
+    %% Judicial Layer (Planned)
+    J_SPLIT -->|Yes| PROS[The Prosecutor]
+    J_SPLIT -->|Yes| DEF[The Defense]
+    J_SPLIT -->|Yes| TECH[The Tech Lead]
+    J_SPLIT -->|No| END((END - Warning))
+
+    PROS -->|JudicialOpinion| CJ[Chief Justice]
+    DEF -->|JudicialOpinion| CJ
+    TECH -->|JudicialOpinion| CJ
+
+    CJ -->|AuditReport| END((END))
+    ABORT -->|Errors| END
 ```
 
 ### 3.2 Implemented Components
@@ -88,9 +100,18 @@ We will implement three parallel LLM-powered Judge nodes:
 - **The Defense:** Highlighting engineering effort, defensive coding, and conceptual depth.
 - **The Tech Lead:** Evaluating maintainability, DRY principles, and pragmatic execution.
 
+**Specific Risks & Failure Modes:**
+
+- _Prompt Drift:_ The LLM judges might lose adherence to the strict 1-5 scoring rubric, resulting in unparseable or subjective outputs. We will mitigate this using `with_structured_output` backed by Pydantic models.
+- _Context Window Exhaustion:_ Passing the entire aggregated evidence payload to three separate models simultaneously could hit token limits or cause the LLM to forget instructions. We will implement evidence summarization if payloads grow too large.
+
 ### 4.2 The Supreme Court
 
 The `ChiefJusticeNode` will be implemented to take the conflicting subjective opinions of the three judges and apply the deterministic conflict resolution logic (e.g., `Fact Supremacy`, `Security Override`) defined in the JSON rubric to produce a final, unassailable score.
+
+**Specific Risks & Failure Modes:**
+
+- _Resolution Deadlock:_ If two synthesis rules trigger simultaneously (e.g., Security Override vs Fact Supremacy), the Chief Justice might fail to deterministically resolve the score. We must strictly order the synthesis rule priority in the JSON rubric.
 
 ### 4.3 MinMax Feedback Loop
 
