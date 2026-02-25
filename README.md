@@ -67,3 +67,4 @@ uv run python main.py https://github.com/user/my-repo reports/architecture.pdf
 - `src/nodes/`: Agent node implementations.
 - `rubric/`: The 10-dimension JSON constitution.
 
+---
