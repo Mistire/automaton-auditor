@@ -1,96 +1,105 @@
 {
   "rubric_metadata": {
-    "rubric_name": "Week 2: The Automaton Auditor Self-Evaluation",
+    "rubric_name": "Week 2: The Automaton Auditor Peer Evaluation",
     "grading_target": "Week 2 Auditor Repository & Architectural Report",
-    "version": "3.0.0"
+    "version": "4.0.0"
   },
   "dimensions": [
     {
-      "id": "git_forensic_analysis",
-      "name": "Git Forensic Analysis",
+      "id": "development_progress",
+      "name": "Development Progress",
       "target_artifact": "github_repo",
-      "forensic_instruction": "Run 'git log --oneline --reverse' on the cloned repository. Count the total number of commits. Check if the commit history tells a progression story: Environment Setup -> Tool Engineering -> Graph Orchestration. Extract all commit messages and timestamps. Flag if there is a single 'init' commit or a 'bulk upload' pattern with no iterative development.",
-      "success_pattern": "More than 3 commits showing clear progression from setup to tool engineering to graph orchestration. Atomic, step-by-step history with meaningful commit messages.",
-      "failure_pattern": "Single 'init' commit or bulk upload of all code at once. No iterative development visible. Timestamps clustered within minutes."
+      "forensic_instruction": "Evaluate how much of the complete Week 2 deliverable the peer has implemented, as evidenced by the repository's git history and the functional state of the codebase. This is measured against the full final spec: state definitions, detective tools, judge nodes, Chief Justice synthesis, complete graph wiring, infrastructure, and audit reports. This criterion focuses on delivery completeness and the quality of the engineering process visible in git history, not report quality or theoretical depth.",
+      "levels": {
+        "Complete System": {
+          "score": 35,
+          "description": "Atomic, meaningful commits telling a clear development narrative across all phases. The full pipeline executes end-to-end: repo URL input through detectives (parallel fan-out/fan-in), through judges (parallel with distinct personas and structured output), through Chief Justice (deterministic conflict resolution), to a rendered Markdown audit report. All required files are present and substantive: state definitions with reducers, sandboxed tools, detective nodes, judge nodes with .with_structured_output(), justice node with hardcoded rules, complete graph with conditional edges, infrastructure files, and generated audit reports in audit/. The system has been run against at least the peer's own repo, producing a real report. Nothing structurally missing from the final deliverable spec. Any minor remaining gaps are documented with a clear rationale."
+        },
+        "Partial Pipeline": {
+          "score": 21,
+          "description": "More than 3 commits showing recognizable progression. Core infrastructure is in place: src/state.py with Pydantic/TypedDict models, src/tools/ with sandboxed repo cloning and PDF parsing, src/nodes/detectives.py producing structured Evidence objects, and src/graph.py wiring the detective layer with fan-out/fan-in. pyproject.toml, .env.example, and README.md are present. The detective pipeline runs end-to-end against a target repo. Missing: The judicial layer is incomplete or missing. Judge nodes may exist but lack distinct persona prompts, structured output enforcement, or parallel execution. The Chief Justice synthesis engine is absent or is just an LLM prompt without deterministic rules. Audit reports are not yet generated or are incomplete. The system works partially but cannot produce a full audit report from input to output."
+        },
+        "Superficial": {
+          "score": 7,
+          "description": "Repo exists with some code files. A single init or bulk upload commit contains all artifacts at once. Some deliverables exist but are stubs, placeholders, or clearly non-functional. State definitions may use plain dicts instead of Pydantic/TypedDict. No graph wiring or only a skeleton that does not execute. Missing: Iterative git history. Functional state management. Working detective or judge nodes. Any evidence of the code being tested against a real repo. The codebase does not reflect sustained engineering effort."
+        },
+        "Absent": {
+          "score": 0,
+          "description": "No repository exists, or the repo is empty / contains only boilerplate. No evidence of any development work."
+        }
+      }
     },
     {
-      "id": "state_management_rigor",
-      "name": "State Management Rigor",
+      "id": "feedback_implementation",
+      "name": "Feedback Implementation",
       "target_artifact": "github_repo",
-      "forensic_instruction": "Scan for 'src/state.py' or equivalent state definitions in 'src/graph.py'. Use AST parsing (not regex) to find classes inheriting from 'BaseModel' (Pydantic) or 'TypedDict'. Verify that the state actively maintains a collection of 'Evidence' objects and a list of 'JudicialOpinion' objects. Check for the use of 'operator.add' and 'operator.ior' as state reducers in 'Annotated' type hints to prevent data overwriting during parallel execution. Capture the full code snippet of the core 'AgentState' definition.",
-      "success_pattern": "'AgentState' uses TypedDict or BaseModel with Annotated reducers. 'Evidence' and 'JudicialOpinion' are Pydantic BaseModel classes with typed fields. Reducers like 'operator.add' (for lists) and 'operator.ior' (for dicts) are present.",
-      "failure_pattern": "Plain Python dicts used for state. No Pydantic models. No reducers, meaning parallel agents will overwrite each other's data."
+      "forensic_instruction": "Evaluate whether the peer acted on feedback received during the development period -- from your direct communication, your code review, or from audit reports generated by your agent. This measures the peer's ability to iterate based on external input, which is the core of the MinMax loop. This criterion does not assess whether the feedback itself was correct. It assesses whether the peer engaged with received feedback and made visible, traceable changes as a result. If no feedback was exchanged, score 0 (No Exchange) and exclude from the weighted total.",
+      "levels": {
+        "Fully Integrated": {
+          "score": 20,
+          "description": "The peer addressed all substantive feedback points with traceable commits. Where feedback could not be fully addressed, the peer explicitly documented the deferral with a rationale (in commit messages, communication, or the report). Agent-generated audit findings were used to drive concrete architectural improvements, not just cosmetic fixes. The peer's response demonstrates comprehension of the feedback, not mechanical application. Evidence of the MinMax loop: feedback received led to improvements in both the peer's code and their understanding of what their own agent should detect. Nothing left unaddressed without documented reasoning."
+        },
+        "Selective": {
+          "score": 12,
+          "description": "The peer acknowledged feedback and addressed some of the points raised. Concrete changes are visible in git history following the feedback (e.g., commits fixing flagged issues, adding missing files, restructuring modules). Agent-generated findings, if shared, led to at least one concrete code change. Missing: Not all substantive feedback was addressed. The peer may have fixed surface-level issues (typos, missing files) while leaving deeper structural feedback unaddressed (e.g., linear graph wiring, missing reducers, persona collusion in judges). No explanation for why certain feedback was deferred."
+        },
+        "Ignored": {
+          "score": 4,
+          "description": "Feedback was provided (you flagged specific issues: missing files, broken imports, structural gaps, agent-generated findings), but the repo shows no evidence of changes related to that feedback. No acknowledgment in commits, code, or communication. Missing: Any sign that feedback was received and considered. No commit addressing flagged issues. No message acknowledging the points raised. The codebase is unchanged in the areas feedback targeted."
+        },
+        "No Exchange": {
+          "score": 0,
+          "description": "No feedback was given or received. Exclude from weighted total. Do not penalize the peer if no feedback channel was established."
+        }
+      }
     },
     {
-      "id": "graph_orchestration",
-      "name": "Graph Orchestration Architecture",
-      "target_artifact": "github_repo",
-      "forensic_instruction": "Scan for the 'StateGraph' builder instantiation in 'src/graph.py'. Use AST parsing to analyze 'builder.add_edge()' and 'builder.add_conditional_edges()' calls. Determine if the Detectives (RepoInvestigator, DocAnalyst, VisionInspector) branch out from a single node and run concurrently (fan-out). Verify there is a synchronization node ('EvidenceAggregator' or equivalent) that collects all evidence before the Judges are invoked (fan-in). Verify the Judges (Prosecutor, Defense, TechLead) also fan-out in parallel from the aggregation node and fan-in before the ChiefJustice. Check for conditional edges that handle 'Evidence Missing' or 'Node Failure' scenarios. Capture the specific Python block defining the graph's nodes and edges.",
-      "success_pattern": "Two distinct parallel fan-out/fan-in patterns: one for Detectives, one for Judges. Conditional edges handle error states. Graph structure: START -> [Detectives in parallel] -> EvidenceAggregator -> [Judges in parallel] -> ChiefJustice -> END.",
-      "failure_pattern": "Purely linear flow (RepoInvestigator -> DocAnalyst -> Judge -> End). No parallel branches. No synchronization node. No conditional edges for error handling."
+      "id": "proactive_communication",
+      "name": "Proactive Communication",
+      "target_artifact": "communication_logs",
+      "forensic_instruction": "Evaluate whether the peer proactively communicated about their progress, blockers, design decisions, and coordination needs throughout the development period. This measures initiative in making the peer-grading collaboration functional. This criterion does not assess technical skill or communication style. It assesses whether the peer made the feedback loop possible by being reachable, forthcoming, and engaged.",
+      "levels": {
+        "Collaborative Driver": {
+          "score": 20,
+          "description": "The peer regularly shared progress, flagged blockers early, and actively sought your input on design decisions and implementation trade-offs. They shared their repo and intermediate work early and often, enabling multiple rounds of feedback. They engaged with your agent's output and discussed findings. Communication was distributed across the development period. The peer treated the collaboration as a continuous loop, not a one-time handoff. The collaboration was genuinely bidirectional and productive throughout."
+        },
+        "Engaged": {
+          "score": 12,
+          "description": "The peer initiated communication at least a few times to share progress, ask questions, flag blockers, or discuss design decisions. They responded to your messages with enough detail to enable useful feedback. Their repo was shared early enough for you to run your agent against it and provide findings before the deadline. Missing: Consistency across the full development period. Communication may have been clustered (only at the start or only near the deadline). The peer may not have actively sought your input on architectural decisions or shared intermediate results for early review."
+        },
+        "Reactive Only": {
+          "score": 4,
+          "description": "The peer responded when you initiated contact, but never initiated communication themselves. Responses were minimal (e.g., ok, will do, done) without substantive detail. No sharing of progress or blockers without being prompted. Missing: Self-initiated updates. No proactive sharing of work-in-progress, no early sharing of the repo for review, no heads-up about delays or design decisions. You had to drive every interaction."
+        },
+        "Absent": {
+          "score": 0,
+          "description": "No communication from the peer at any point. No response to your messages. Unreachable."
+        }
+      }
     },
     {
-      "id": "safe_tool_engineering",
-      "name": "Safe Tool Engineering",
-      "target_artifact": "github_repo",
-      "forensic_instruction": "Scan 'src/tools/' for the repository cloning logic. Verify that 'tempfile.TemporaryDirectory()' or equivalent sandboxing is used for git clone operations. Check for raw 'os.system()' calls -- these are a security violation. Verify that 'subprocess.run()' or equivalent is used with proper error handling (capturing stdout/stderr, checking return codes). Ensure the cloned repo path is never the live working directory. Check that git authentication errors are handled gracefully. Capture the specific Python function responsible for executing the repository clone.",
-      "success_pattern": "All git operations run inside 'tempfile.TemporaryDirectory()'. 'subprocess.run()' used with error handling. No raw 'os.system()' calls. Authentication failures caught and reported.",
-      "failure_pattern": "Raw 'os.system(\"git clone <url>\")' drops code into the live working directory. No error handling around shell commands. No input sanitization on the repo URL."
-    },
-    {
-      "id": "structured_output_enforcement",
-      "name": "Structured Output Enforcement",
-      "target_artifact": "github_repo",
-      "forensic_instruction": "Scan Judge nodes in 'src/nodes/judges.py'. Verify that LLMs are invoked using '.with_structured_output()' or '.bind_tools()' bound to the Pydantic 'JudicialOpinion' schema. Check that the output includes 'score' (int), 'argument' (str), and 'cited_evidence' (list). Verify there is retry logic or error handling if a Judge returns freeform text instead of structured JSON. Capture the code block responsible for querying the Judge LLMs.",
-      "success_pattern": "All Judge LLM calls use '.with_structured_output(JudicialOpinion)' or equivalent. Retry logic exists for malformed outputs. Output is validated against the Pydantic schema before being added to state.",
-      "failure_pattern": "Judge nodes call LLMs with plain prompts and parse freeform text responses. No Pydantic validation on output. No retry on parse failure."
-    },
-    {
-      "id": "judicial_nuance",
-      "name": "Judicial Nuance and Dialectics",
-      "target_artifact": "github_repo",
-      "forensic_instruction": "Scan 'src/nodes/judges.py' or prompt templates. Verify that Prosecutor, Defense, and Tech Lead personas have distinct, conflicting system prompts. Compare the three prompts -- if they share more than 50% of text, flag as 'Persona Collusion'. Check if the Prosecutor prompt includes adversarial language and instructions to look for gaps, security flaws, and laziness. Check if the Defense prompt includes instructions to reward effort, intent, and creative workarounds. Check if the Tech Lead prompt focuses on architectural soundness, maintainability, and practical viability. Verify the graph forces all three judges to run in parallel on the same evidence for each criterion.",
-      "success_pattern": "Three clearly distinct personas with conflicting philosophies. Prompts actively instruct the model to be adversarial (Prosecutor), forgiving (Defense), or pragmatic (Tech Lead). Judges produce genuinely different scores and arguments for the same evidence.",
-      "failure_pattern": "Single agent acts as 'The Grader' with no persona separation. Or three judges exist but share 90% of prompt text, producing near-identical outputs. Scores are random or purely praise/criticism without nuance."
-    },
-    {
-      "id": "chief_justice_synthesis",
-      "name": "Chief Justice Synthesis Engine",
-      "target_artifact": "github_repo",
-      "forensic_instruction": "Scan 'src/nodes/justice.py' for the ChiefJusticeNode implementation. Verify the conflict resolution uses hardcoded deterministic Python logic, not just an LLM prompt. Check for these specific rules: (1) Rule of Security -- if the Prosecutor identifies a confirmed security vulnerability, the score is capped at 3 regardless of Defense arguments. (2) Rule of Evidence -- if the Defense claims 'Deep Metacognition' but Detective evidence shows the artifact is missing, the Defense is overruled. (3) Rule of Functionality -- if the Tech Lead confirms the architecture is modular, this carries the highest weight for the Architecture criterion. Check if score variance > 2 triggers a specific re-evaluation rule. Verify the output is a structured Markdown report, not a console print.",
-      "success_pattern": "Deterministic Python if/else logic implementing named rules (security override, fact supremacy, functionality weight). Score variance triggers specific re-evaluation. Output is a Markdown file with Executive Summary, Criterion Breakdown (with dissent), and Remediation Plan.",
-      "failure_pattern": "ChiefJustice is just another LLM prompt that averages the three judge scores. No hardcoded rules. No dissent summary. Output is console text or unstructured."
-    },
-    {
-      "id": "theoretical_depth",
-      "name": "Theoretical Depth (Documentation)",
-      "target_artifact": "pdf_report",
-      "forensic_instruction": "Search the PDF report for these specific terms: 'Dialectical Synthesis', 'Fan-In / Fan-Out', 'Metacognition', 'State Synchronization'. Determine if the term appears in a substantive architectural explanation or is just a buzzword dropped in the executive summary. Check if the report explains HOW the architecture executes these concepts, not just that they exist. Flag terms that appear without supporting explanation as 'Keyword Dropping'.",
-      "success_pattern": "Terms appear in detailed architectural explanations. The report explains how Dialectical Synthesis is implemented via three parallel judge personas. Fan-In/Fan-Out is tied to specific graph edges. Metacognition is connected to the system evaluating its own evaluation quality.",
-      "failure_pattern": "Terms appear only in the executive summary or introduction. No connection to actual implementation. 'We used Dialectical Synthesis' with no explanation of how."
-    },
-    {
-      "id": "report_accuracy",
-      "name": "Report Accuracy (Cross-Reference)",
-      "target_artifact": "pdf_report",
-      "forensic_instruction": "Extract all file paths mentioned in the PDF report (e.g., 'We isolated the AST logic in src/tools/ast_parser.py', 'We implemented parallel Judges in src/nodes/judges.py'). Cross-reference each claimed file path against the evidence collected by the RepoInvestigator. Build two lists: (1) Verified Paths -- files that the report mentions and actually exist in the repo. (2) Hallucinated Paths -- files the report claims exist but the RepoInvestigator found no evidence of. Flag any claims about features (e.g., 'We implemented parallel Judges') where the code evidence contradicts the claim.",
-      "success_pattern": "All file paths mentioned in the report exist in the repo. Feature claims match code evidence. Zero hallucinated paths.",
-      "failure_pattern": "Report references files that do not exist. Claims parallel execution but code shows linear flow. Multiple hallucinated paths detected."
-    },
-    {
-      "id": "swarm_visual",
-      "name": "Architectural Diagram Analysis",
-      "target_artifact": "pdf_images",
-      "forensic_instruction": "Extract images from the PDF report. Classify each diagram: is it an accurate LangGraph State Machine diagram, a sequence diagram, or just generic flowchart boxes? Check if the diagram explicitly visualizes the parallel split: START -> [Detectives in parallel] -> Evidence Aggregation -> [Prosecutor || Defense || TechLead in parallel] -> Chief Justice Synthesis -> END. Verify the diagram distinguishes between parallel branches and sequential steps. Flag diagrams that show a simple linear pipeline as 'Misleading Architecture Visual'.",
-      "success_pattern": "Diagram accurately represents the StateGraph with clear parallel branches for both Detectives and Judges. Fan-out and fan-in points are visually distinct. Flow matches the actual code architecture.",
-      "failure_pattern": "Generic box-and-arrow diagram with no indication of parallelism. Or no diagram present at all. Diagram shows linear flow that contradicts the parallel architecture claimed in the report."
+      "id": "agent_feedback_relevance",
+      "name": "Agent Feedback Relevance",
+      "target_artifact": "audit_report",
+      "forensic_instruction": "Evaluate whether YOUR auditor agent produced relevant, actionable, forensic-quality feedback when run against the peer's repository. This is a dual assessment: it tests whether the peer's repo is structured enough to be machine-auditable AND whether your agent is capable of generating genuine signal. If your agent crashes or produces no output, score 0 or 1 regardless of the peer's repo state. If the peer's repo is empty, your agent should handle that gracefully and report the absence -- that itself is valid forensic output. Be honest: if your agent failed to produce useful output, score accordingly. Inflating your own agent's performance undermines the adversarial improvement process.",
+      "levels": {
+        "Full Forensic Audit": {
+          "score": 25,
+          "description": "Your agent produced a complete audit report following the Automaton Auditor spec. Detectives collected structured evidence: git history analysis with progression assessment, AST-based code structure verification (not just regex), file existence with content analysis, and cross-referencing between report claims and repo reality. Judges (or equivalent analysis) provided multi-perspective evaluation with distinct viewpoints. The output includes a synthesized verdict with criterion-level scores, cited evidence, dissent where judges disagreed, and a specific remediation plan with file-level instructions. The feedback is detailed enough for the peer to take direct action. The agent demonstrates the full detective-judicial-synthesis pipeline against real input, producing output that matches the AuditReport structure."
+        },
+        "Targeted Analysis": {
+          "score": 15,
+          "description": "Your agent produced feedback referencing actual files and structures in the peer's repo. It correctly identified present deliverables and flagged genuinely missing components. Evidence objects contain real file paths with accurate existence checks. The output is clearly specific to this repo. Detective-layer output (git history analysis, state definition checks, file structure verification) is functional and grounded. Missing: Depth beyond file-level checks. The agent may verify file existence but not analyze code structure (e.g., whether the graph is truly parallel vs. linear, whether reducers are used, whether judge prompts are distinct). Judicial-layer analysis may be absent or shallow. No synthesized verdict with conflict resolution. The agent operates as a file checker, not a forensic auditor."
+        },
+        "Generic Noise": {
+          "score": 5,
+          "description": "Your agent ran but produced generic, non-specific output. Feedback is not tied to actual files or structures in the peer's repo. Output reads like boilerplate (Code quality is acceptable) or contains hallucinated file paths. The same output could have been generated for any repo. Evidence objects, if present, lack real file paths or accurate existence checks. Missing: Specificity. No file-level references matching actual repo contents. No distinction between present and missing artifacts. No structured Evidence objects grounded in real analysis."
+        },
+        "No Output": {
+          "score": 0,
+          "description": "Your agent could not run against the peer's repo. It crashed, produced no output, or was never executed. No feedback artifact exists. No evidence the agent was pointed at the peer's repo."
+        }
+      }
     }
-  ],
-  "synthesis_rules": {
-    "security_override": "Confirmed security flaws (e.g., shell injection in git tools, raw os.system with unsanitized inputs) cap the total score at 3, overriding any effort points from the Defense.",
-    "fact_supremacy": "Forensic evidence (facts from Detectives) always overrules Judicial opinion (interpretation from Judges). If the Defense claims 'Deep Metacognition' but the RepoInvestigator found no supporting code, the Defense is overruled for hallucination.",
-    "functionality_weight": "If the Tech Lead confirms the architecture is modular and workable, this carries the highest weight for the 'Graph Orchestration Architecture' criterion.",
-    "dissent_requirement": "The Chief Justice must summarize why the Prosecutor and Defense disagreed in the final report. Every criterion with a score variance > 2 must include an explicit dissent explanation.",
-    "variance_re_evaluation": "If score variance across the three judges exceeds 2 for any criterion (e.g., Prosecutor says 1, Defense says 5), trigger a re-evaluation of the specific evidence cited by each judge before rendering the final score."
-  }
+  ]
 }
