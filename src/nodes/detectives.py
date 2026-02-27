@@ -6,20 +6,26 @@ from src.tools import repo_tools, doc_tools
 
 def repo_investigator(state: AgentState) -> Dict:
     """
-    Detective Node: Analyzes the GitHub repository structure and history.
-    Runs 5 forensic protocols via AST parsing and git analysis.
+    Detective Node: Analyzes the repository structure and history.
+    Supports local testing mode if local_repo_path is pre-provided.
     """
     repo_url = state.get("repo_url")
-    if not repo_url:
-        return {"errors": ["RepoInvestigator: No repository URL provided."]}
-
+    local_path = state.get("local_repo_path")
+    
     evidences = []
     repo_path = None
+    
     try:
-        # 1. Clone into sandboxed temp directory
-        repo_path = repo_tools.clone_repo(repo_url)
+        if local_path and os.path.exists(local_path):
+            print(f"🏠 Local Testing Mode: Using existing path {local_path}")
+            repo_path = local_path
+        else:
+            if not repo_url:
+                return {"errors": ["RepoInvestigator: No repository URL provided and no local path found."]}
+            print(f"🌐 Cloning repository: {repo_url}")
+            repo_path = repo_tools.clone_repo(repo_url)
 
-        # 2. Execute all forensic protocols
+        # Execute all forensic protocols
         evidences.extend(repo_tools.extract_git_history(repo_path))
         evidences.extend(repo_tools.analyze_state_structure(repo_path))
         evidences.extend(repo_tools.analyze_graph_orchestration(repo_path))
