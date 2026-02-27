@@ -14,6 +14,11 @@ def chief_justice_node(state: AgentState) -> Dict:
     - Rule of Functionality (Weights Tech Lead's architectural judgment)
     - Dissent summary for high-variance criteria
     """
+    opinions = state.get("opinions", [])
+    dimensions = state.get("rubric_dimensions", [])
+    evidences = state.get("evidences", {})
+    repo_url = state.get("repo_url", "Unknown")
+
     print(f"⚖️ Chief Justice Node: Synthesizing verdict for {repo_url}")
     
     results = []
