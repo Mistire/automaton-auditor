@@ -14,10 +14,10 @@ def chief_justice_node(state: AgentState) -> Dict:
     - Rule of Functionality (Weights Tech Lead's architectural judgment)
     - Dissent summary for high-variance criteria
     """
-    opinions = state.get("opinions", [])
-    dimensions = state.get("rubric_dimensions", [])
-    evidences = state.get("evidences", {})
-    repo_url = state.get("repo_url", "Unknown")
+    opinions = state.opinions
+    dimensions = state.rubric_dimensions
+    evidences = state.evidences
+    repo_url = state.repo_url
 
     print(f"⚖️ Chief Justice Node: Synthesizing verdict for {repo_url}")
     
@@ -47,7 +47,11 @@ def chief_justice_node(state: AgentState) -> Dict:
         # 1. Rule of Security (CAP AT 3)
         # If any security forensics or judge flags confirmed flaws
         safe_tooling = next((e for e in evidences.get("repo", []) if e.goal == "safe_tool_engineering"), None)
-        if (prosecutor and "security" in prosecutor.argument.lower()) or (safe_tooling and not safe_tooling.found):
+        
+        # Refined trigger: Must have a security keyword AND a critical score/negligence charge
+        is_security_flaw = prosecutor and prosecutor.score < 15 and any(word in prosecutor.argument.lower() for word in ["security", "negligence", "unsafe", "raw shell", "os.system"])
+        
+        if is_security_flaw or (safe_tooling and not safe_tooling.found):
             print(f"  🚨 Security Override triggered for {dim_id}")
             final_score = min(final_score, 3) 
             remediation = f"CRITICAL SECURITY FIX REQUIRED: {prosecutor.argument if prosecutor else 'Unsafe tool usage detected.'}"

@@ -19,8 +19,8 @@ def should_aggregate_or_abort(state: AgentState) -> str:
     Conditional edge after fan-in: checks if we have enough evidence to proceed,
     or if critical errors mean we should abort early.
     """
-    errors = state.get("errors", [])
-    evidences = state.get("evidences", {})
+    errors = state.errors
+    evidences = state.evidences
 
     # If ALL detectives failed (no evidence at all), abort
     if not evidences and errors:
@@ -34,7 +34,7 @@ def after_aggregation(state: AgentState) -> str:
     """
     Conditional edge after aggregation: route to judges or end.
     """
-    evidences = state.get("evidences", {})
+    evidences = state.evidences
     
     # Count total evidence items (summing all lists in the dict)
     total_evidence = sum(len(v) for v in evidences.values())

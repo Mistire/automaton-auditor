@@ -12,8 +12,8 @@ def repo_investigator(state: AgentState) -> Dict:
     Detective Node: Analyzes the repository structure and history.
     Supports local testing mode if local_repo_path is pre-provided.
     """
-    repo_url = state.get("repo_url")
-    local_path = state.get("local_repo_path")
+    repo_url = state.repo_url
+    local_path = state.local_repo_path
     
     evidences = []
     repo_path = None
@@ -48,8 +48,8 @@ def doc_analyst(state: AgentState) -> Dict:
     Detective Node: Analyzes the architectural PDF report.
     Checks concept depth and performs forensic cross-referencing of file paths.
     """
-    pdf_path = state.get("pdf_path")
-    repo_path = state.get("local_repo_path")
+    pdf_path = state.pdf_path
+    repo_path = state.local_repo_path
 
     # 1. Internal PDF Discovery (from earlier implementation)
     if not pdf_path and repo_path:
@@ -126,8 +126,8 @@ def vision_inspector(state: AgentState) -> Dict:
     Detective Node: Analyzes architectural diagrams in the PDF (Protocol A - Swarm Visual).
     Uses multimodal LLM analysis if images are found.
     """
-    pdf_path = state.get("pdf_path")
-    repo_path = state.get("local_repo_path")
+    pdf_path = state.pdf_path
+    repo_path = state.local_repo_path
     
     # Discovery logic if not provided
     if not pdf_path and repo_path:
@@ -223,8 +223,8 @@ def evidence_aggregator(state: AgentState) -> Dict:
     3. Confidence normalization — computes per-source and overall stats
     4. Summary generation — produces an aggregated evidence profile
     """
-    evidences = state.get("evidences", {})
-    errors = state.get("errors", [])
+    evidences = state.evidences
+    errors = state.errors
     aggregation_evidence = []
 
     # ── 1. Completeness Audit ─────────────────────────────────────
