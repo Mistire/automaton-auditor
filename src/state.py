@@ -56,25 +56,26 @@ class AuditReport(BaseModel):
 
 # --- LangGraph Orchestration State ---
 
-class AgentState(TypedDict):
-    """The shared state flowing through the LangGraph StateGraph."""
+class AgentState(BaseModel):
+    """
+    The shared state flowing through the LangGraph StateGraph.
+    Upgraded to Pydantic BaseModel for 'Architectural Soundness'.
+    """
     repo_url: str
-    pdf_path: str
-    local_repo_path: Optional[str]
+    pdf_path: Optional[str] = None
+    local_repo_path: Optional[str] = None
     
     # Configuration
-    rubric_dimensions: List[Dict[str, Any]]
+    rubric_dimensions: List[Dict[str, Any]] = Field(default_factory=list)
     
     # Collected Evidence (Parallel Detectives)
-    # operator.ior merges dictionaries (detective_name -> list of Evidence)
-    evidences: Annotated[Dict[str, List[Evidence]], operator.ior]
+    evidences: Annotated[Dict[str, List[Evidence]], operator.ior] = Field(default_factory=dict)
     
     # Judicial Opinions (Parallel Judges)
-    # operator.add accumulates opinions in a single list
-    opinions: Annotated[List[JudicialOpinion], operator.add]
+    opinions: Annotated[List[JudicialOpinion], operator.add] = Field(default_factory=list)
     
     # Final Result
-    final_report: Optional[AuditReport]
+    final_report: Optional[AuditReport] = None
     
     # Error management
-    errors: Annotated[List[str], operator.add]
+    errors: Annotated[List[str], operator.add] = Field(default_factory=list)

@@ -20,8 +20,8 @@ def create_judge_node(judge_persona: str, judge_name: str):
         llm = get_llm()
         structured_llm = llm.with_structured_output(JudicialOpinion)
         
-        dimensions = state.get("rubric_dimensions", [])
-        evidences = state.get("evidences", {})
+        dimensions = state.rubric_dimensions
+        evidences = state.evidences
         
         # Flatten evidence into a readable, concise context
         evidence_context = ""
@@ -65,22 +65,31 @@ def create_judge_node(judge_persona: str, judge_name: str):
             Respond strictly in the required JSON format.
             """
             
-            try:
-                # Invoke LLM with retries for structured output (handled by library/prompt)
-                opinion = structured_llm.invoke(prompt)
-                
-                # Ensure metadata is strictly correct even if LLM hallucinates these fields
-                opinion.judge = judge_name
-                opinion.criterion_id = dim.get('id')
-                
+            # Retry logic for structured output robustness
+            attempts = 3
+            opinion = None
+            last_error = None
+            
+            for i in range(attempts):
+                try:
+                    opinion = structured_llm.invoke(prompt)
+                    # Force correct metadata
+                    opinion.judge = judge_name
+                    opinion.criterion_id = dim.get('id')
+                    break
+                except Exception as e:
+                    last_error = e
+                    continue
+            
+            if opinion:
                 opinions.append(opinion)
-            except Exception as e:
-                # Return an error opinion if LLM fails, so the Chief Justice can see the failure
+            else:
+                # Fallback opinion after all retries fail
                 opinions.append(JudicialOpinion(
                     judge=judge_name,
                     criterion_id=dim.get('id', 'unknown'),
                     score=0,
-                    argument=f"ERROR: Failed to render opinion. {str(e)}",
+                    argument=f"ERROR: Failed to render opinion after {attempts} attempts. {str(last_error)}",
                     cited_evidence=[]
                 ))
                 

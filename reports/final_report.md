@@ -106,6 +106,9 @@ graph TD
 
 The implementation features two distinct synchronization points:
 
+- **Fan-Out:** The `detective_router` and `router_to_judges` nodes allow for maximum concurrency, scaling the audit horizontally.
+- **Fan-In (State Synchronization):** The `evidence_aggregator` and `chief_justice` nodes act as strict synchronization barriers. By utilizing LangGraph's functional reducers (e.g., `Annotated[List, operator.add]`), the system ensures that parallel updates to the global state are commutative and non-destructive. This "State Synchronization" prevents race conditions and ensures the judicial layer has the complete forensic corpus before deliberation begins.
+
 ## 4. The Digital Courtroom: Dialectical Judicial Nuance
 
 We implemented a three-judge bench to ensure no single model's bias determines the grade.
