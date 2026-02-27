@@ -60,6 +60,7 @@ class AgentState(TypedDict):
     """The shared state flowing through the LangGraph StateGraph."""
     repo_url: str
     pdf_path: str
+    local_repo_path: Optional[str]
     
     # Configuration
     rubric_dimensions: List[Dict[str, Any]]

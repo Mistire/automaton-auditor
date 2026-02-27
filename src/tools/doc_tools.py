@@ -67,6 +67,44 @@ def check_concept_depth(text: str, concept: str) -> Tuple[bool, str]:
     return is_deep, context
 
 
+def extract_images_from_pdf(pdf_path: str) -> List[str]:
+    """
+    Extracts images from a PDF and saves them as temporary files.
+    Returns a list of local file paths to the images.
+    """
+    if not pdf_path or not Path(pdf_path).exists():
+        return []
+
+    import tempfile
+    import os
+    
+    image_paths = []
+    try:
+        doc = fitz.open(pdf_path)
+        temp_dir = tempfile.mkdtemp(prefix="auditor_vision_")
+        
+        for i in range(len(doc)):
+            page = doc[i]
+            image_list = page.get_images(full=True)
+            
+            for img_index, img in enumerate(image_list):
+                xref = img[0]
+                base_image = doc.extract_image(xref)
+                image_bytes = base_image["image"]
+                image_ext = base_image["ext"]
+                
+                img_path = os.path.join(temp_dir, f"page{i+1}_img{img_index}.{image_ext}")
+                with open(img_path, "wb") as f:
+                    f.write(image_bytes)
+                image_paths.append(img_path)
+        
+        doc.close()
+    except Exception as e:
+        print(f"Error extracting images: {e}")
+        
+    return image_paths
+
+
 def cross_reference_paths(report_paths: List[str], repo_path: str) -> Tuple[List[str], List[str]]:
     """
     Verifies reported file paths against actual repository structure.
@@ -75,12 +113,20 @@ def cross_reference_paths(report_paths: List[str], repo_path: str) -> Tuple[List
     verified = []
     hallucinated = []
     
+    if not repo_path or not Path(repo_path).exists():
+        return [], report_paths
+        
     root = Path(repo_path)
     for path_str in report_paths:
-        full_path = root / path_str
-        if full_path.exists():
-            verified.append(path_str)
-        else:
-            hallucinated.append(path_str)
+        # Clean the path string (remove potential surrounding punctuation)
+        clean_path = path_str.strip(".,;:()\"' ")
+        if not clean_path:
+            continue
             
-    return verified, hallucinated
+        full_path = root / clean_path
+        if full_path.exists():
+            verified.append(clean_path)
+        else:
+            hallucinated.append(clean_path)
+            
+    return sorted(list(set(verified))), sorted(list(set(hallucinated)))

@@ -2,40 +2,54 @@
 
 > **Orchestrating Deep LangGraph Swarms for Autonomous Governance.**
 
-The Automaton Auditor is a production-grade multi-agent system designed to audit GitHub repositories and architectural reports. It uses a hierarchical swarm of specialized agents to verify code structure, analyze git history, and assess documentation depth.
+The Automaton Auditor is a production-grade multi-agent system designed to audit GitHub repositories and architectural reports. It uses a hierarchical swarm of specialized agents to verify code structure, analyze git history, and assess documentation depth through a dialectical judicial process.
 
-## Architecture
+## 🏛️ Architecture: The Digital Courtroom
 
-The system uses a **Digital Courtroom** metaphor with three distinct layers:
+The system implements a **Hierarchical State Graph** with three specialized layers:
 
-1.  **Detective Layer (Current Implementation):** Forensic agents collect objective evidence from source code (AST parsing), git history (commit analysis), and PDF reports.
-2.  **Judicial Layer (Phase 2):** Persona-based judges (Prosecutor, Defense, Tech Lead) analyze evidence to determine scores.
-3.  **Supreme Court (Phase 2):** A Chief Justice node synthesizes final verdicts based on deterministic conflict resolution rules.
+1.  **Detective Layer (Forensic Swarm):**
+    - **RepoInvestigator:** Performs deep AST-based code forensics and git history analysis.
+    - **DocAnalyst:** Ingests PDF reports, verifies theoretical depth, and detects path hallucinations.
+    - **VisionInspector:** Uses multimodal LLMs to analyze architectural diagrams.
+2.  **Judicial Layer (Dialectical Bench):**
+    - **Prosecutor**: Adversarial lens; hunts for security flaws and orchestration fraud.
+    - **Defense**: Optimistic lens; highlights iterative effort and engineering intent.
+    - **Tech Lead**: Pragmatic lens; evaluates technical debt and maintainability.
+3.  **Supreme Court (Synthesis Engine):**
+    - **Chief Justice**: Synthesizes a final verdict using **deterministic Python rules** (e.g., Security Override, Fact Supremacy).
 
 ```mermaid
 graph TD
     START((START)) --> RI[RepoInvestigator]
-    START --> DA[DocAnalyst]
-    START --> VI[VisionInspector]
+    RI --> DR[Detective Router]
 
-    RI -->|conditional| CHECK{Evidence exists?}
-    DA -->|conditional| CHECK
-    VI -->|conditional| CHECK
+    DR -->|Parallel| DA[DocAnalyst]
+    DR -->|Parallel| VI[VisionInspector]
 
-    CHECK -->|yes| AGG[EvidenceAggregator]
-    CHECK -->|no| ABORT[Abort]
+    DA --> EA[EvidenceAggregator]
+    VI --> EA
+    RI --> EA
 
-    AGG -->|sufficient| END((END))
-    AGG -->|insufficient| END
-    ABORT --> END
+    EA -->|Conditional| RJ[Router to Judges]
+
+    RJ -->|Parallel| PROS[Prosecutor]
+    RJ -->|Parallel| DEF[Defense]
+    RJ -->|Parallel| TL[Tech Lead]
+
+    PROS --> CJ[Chief Justice]
+    DEF --> CJ
+    TL --> CJ
+
+    CJ --> END((END))
 ```
 
-## Setup
+## ⚙️ Setup
 
 ### Prerequisites
 
 - [uv](https://github.com/astral-sh/uv) (Python package manager)
-- Google Gemini API Key ([get one here](https://aistudio.google.com/apikey))
+- Google Gemini API Key or OpenRouter API Key
 - Git (for cloning target repositories)
 
 ### Installation
@@ -45,99 +59,49 @@ graph TD
     git clone https://github.com/Mistire/automaton-auditor.git
     cd automaton-auditor
     ```
-2.  Install dependencies (exact versions locked in `uv.lock`):
+2.  Install dependencies:
     ```bash
     uv sync
     ```
 3.  Configure environment variables:
     ```bash
     cp .env.example .env
-    # Edit .env and add your GOOGLE_API_KEY (required)
-    # LangSmith keys are optional but recommended for debugging
+    # Edit .env and set your LLM_PROVIDER and API keys
     ```
 
-## Usage
+## 🚀 Usage
 
-Run the auditor against any GitHub repository URL and (optional) PDF report path:
+Run the auditor against any GitHub repository URL. The system will automatically discover the internal PDF report in the `reports/` folder.
 
 ```bash
-uv run python main.py <GITHUB_REPO_URL> [PDF_REPORT_PATH]
+uv run python main.py <GITHUB_REPO_URL>
 ```
 
 ### Examples
 
 ```bash
-# Audit a repo without a PDF report
-uv run python main.py https://github.com/user/their-repo
+# Audit a specific peer repo
+uv run python main.py https://github.com/peer/week-2-repo
 
-# Audit a repo with its accompanying PDF report
-uv run python main.py https://github.com/user/their-repo reports/architecture.pdf
-
-# Self-audit (run against your own repo)
-uv run python main.py https://github.com/Mistire/automaton-auditor reports/interim_report.md
-```
-
-## Testing & Verification
-
-### Quick Smoke Tests
-
-Verify individual components work correctly:
-
-```bash
-# 1. State models import and validate correctly
-uv run python -c "from src.state import Evidence, JudicialOpinion, AgentState; print('State Models: OK')"
-
-# 2. Pydantic rejects invalid data (should raise ValidationError)
-uv run python -c "
-from src.state import JudicialOpinion
-try:
-    JudicialOpinion(judge='Bob', criterion_id='x', score=6, argument='', cited_evidence=[])
-    print('ERROR: Should have raised ValidationError')
-except Exception as e:
-    print(f'Pydantic Validation: OK — caught: {type(e).__name__}')
-"
-
-# 3. StateGraph compiles without errors
-uv run python -c "from src.graph import graph; print(f'Graph Compilation: OK — nodes: {list(graph.get_graph().nodes)}')"
-
-# 4. Rubric JSON loads correctly
-uv run python -c "
-import json
-with open('rubric/week2_rubric.json') as f:
-    r = json.load(f)
-print(f'Rubric: OK — {len(r[\"dimensions\"])} dimensions, {len(r[\"synthesis_rules\"])} rules')
-"
-```
-
-### End-to-End Test
-
-```bash
-# Full detective run against a public repo
+# Self-audit
 uv run python main.py https://github.com/Mistire/automaton-auditor
 ```
 
-Expected output: structured evidence summary with ✅/❌ indicators per forensic finding.
+## ⚖️ Output
 
-## Project Structure
+The auditor generates a structured Markdown report in `audit/reports_generated/` containing:
 
-```
-├── main.py                 ← Entry point: loads rubric, runs graph, prints results
-├── pyproject.toml          ← Project manifest with locked dependencies
-├── uv.lock                 ← Exact dependency versions (committed for reproducibility)
-├── .env.example            ← Documented environment variable template
-├── rubric/
-│   └── week2_rubric.json   ← 10-dimension audit constitution (machine-readable)
-├── reports/
-│   └── interim_report.md   ← Architecture decisions and known gaps
-├── src/
-│   ├── state.py            ← Pydantic models (Evidence, JudicialOpinion, AgentState)
-│   ├── graph.py            ← StateGraph with conditional edges and error handling
-│   ├── tools/
-│   │   ├── repo_tools.py   ← Sandboxed git clone, AST parsing, security scanning
-│   │   └── doc_tools.py    ← PDF ingestion, path extraction, concept depth analysis
-│   └── nodes/
-│       └── detectives.py   ← Agent nodes: RepoInvestigator, DocAnalyst, EvidenceAggregator
-└── audit/                  ← Output directories for generated audit reports
-```
+- **Executive Summary**: Overall verdict and percentage score.
+- **Criterion Breakdown**: 10-dimension analysis with individual judge opinions and dissent summaries.
+- **Remediation Plan**: Actionable, file-level instructions for improvement.
+
+## 🏁 Final Submission Requirements
+
+Before submitting, ensure you have:
+
+1. Pushed all changes to GitHub.
+2. Generated an audit of your own repository.
+3. Generated an audit of your assigned peer's repository.
+4. Committed all reports to the `audit/` folder.
 
 ---

@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List
 from src.state import AgentState, Evidence
 from src.tools import repo_tools, doc_tools
@@ -28,53 +29,78 @@ def repo_investigator(state: AgentState) -> Dict:
     except Exception as e:
         return {"errors": [f"RepoInvestigator failed: {str(e)}"]}
 
-    return {"evidences": {"repo": evidences}}
+    return {"evidences": {"repo": evidences}, "local_repo_path": repo_path}
 
+
+from src.tools.llm_tools import get_llm
+import base64
 
 def doc_analyst(state: AgentState) -> Dict:
     """
     Detective Node: Analyzes the architectural PDF report.
-    Checks concept depth and extracts file path claims for cross-referencing.
+    Checks concept depth and performs forensic cross-referencing of file paths.
     """
     pdf_path = state.get("pdf_path")
+    repo_path = state.get("local_repo_path")
+
+    # 1. Internal PDF Discovery (from earlier implementation)
+    if not pdf_path and repo_path:
+        report_dir = os.path.join(repo_path, "reports")
+        if os.path.exists(report_dir):
+            pdfs = [f for f in os.listdir(report_dir) if f.endswith(".pdf")]
+            if pdfs:
+                pdf_path = os.path.join(report_dir, pdfs[0])
+                print(f"📂 Found internal PDF report: {pdf_path}")
 
     if not pdf_path:
-        # Graceful degradation: no PDF is not a fatal error
         return {"evidences": {"doc": [Evidence(
             goal="pdf_report_existence",
             found=False,
             location="N/A",
-            rationale="No PDF report path provided in input.",
+            rationale="No PDF report path provided and no PDF found in internal 'reports/' folder.",
             confidence=1.0
         )]}}
 
     evidences = []
     try:
-        # 1. Ingest PDF into page chunks
+        # 2. Ingest PDF
         chunks = doc_tools.ingest_pdf(pdf_path)
         full_text = "\n".join([c["text"] for c in chunks])
 
-        # 2. Extract file paths claimed in the report (for cross-referencing later)
-        report_paths = doc_tools.extract_file_paths(full_text)
-        evidences.append(Evidence(
-            goal="report_file_path_claims",
-            found=len(report_paths) > 0,
-            content=", ".join(report_paths[:20]),
-            location="PDF Report",
-            rationale=f"Extracted {len(report_paths)} file path references from report text.",
-            confidence=0.9
-        ))
+        # 3. Path Cross-Referencing (Forensic Protocol A)
+        raw_paths = doc_tools.extract_file_paths(full_text)
+        if raw_paths and repo_path:
+            verified, hallucinated = doc_tools.cross_reference_paths(raw_paths, repo_path)
+            
+            evidences.append(Evidence(
+                goal="report_accuracy_forensics",
+                found=len(hallucinated) == 0,
+                content=f"Verified: {len(verified)}, Hallucinated: {len(hallucinated)}",
+                location="PDF Report vs Repository",
+                rationale=f"Verified {len(verified)} paths. Found {len(hallucinated)} hallucinations.",
+                confidence=1.0
+            ))
+            
+            if hallucinated:
+                evidences.append(Evidence(
+                    goal="path_hallucinations_detected",
+                    found=False,
+                    location="PDF Report",
+                    content=", ".join(hallucinated),
+                    rationale="Report references non-existent files. This flags potential 'Vibe Coding' or outdated reports.",
+                    confidence=0.9
+                ))
 
-        # 3. Concept Depth protocols — check if key terms are explained or just buzzwords
+        # 4. Theoretical Depth (Forensic Protocol B)
         concepts = ["Dialectical Synthesis", "Fan-In / Fan-Out", "Metacognition", "State Synchronization"]
         for concept in concepts:
             is_deep, excerpt = doc_tools.check_concept_depth(full_text, concept)
             evidences.append(Evidence(
                 goal=f"theoretical_depth_{concept.lower().replace(' ', '_').replace('/', '')}",
                 found=is_deep,
-                content=excerpt[:200],
+                content=excerpt[:200].strip(),
                 location="PDF Report",
-                rationale=f"Verified conceptual depth for '{concept}'.",
+                rationale=f"Assessed depth for '{concept}'. Found = {is_deep}.",
                 confidence=0.8
             ))
 
@@ -86,16 +112,91 @@ def doc_analyst(state: AgentState) -> Dict:
 
 def vision_inspector(state: AgentState) -> Dict:
     """
-    Detective Node: Analyzes diagrams in the PDF.
-    Implementation required, execution optional per challenge spec.
+    Detective Node: Analyzes architectural diagrams in the PDF (Protocol A - Swarm Visual).
+    Uses multimodal LLM analysis if images are found.
     """
-    return {"evidences": {"vision": [Evidence(
-        goal="swarm_visual",
-        found=False,
-        location="PDF Images",
-        rationale="VisionInspector implementation is a stub for interim submission.",
-        confidence=0.5
-    )]}}
+    pdf_path = state.get("pdf_path")
+    repo_path = state.get("local_repo_path")
+    
+    # Discovery logic if not provided
+    if not pdf_path and repo_path:
+        report_dir = os.path.join(repo_path, "reports")
+        if os.path.exists(report_dir):
+            pdfs = [f for f in os.listdir(report_dir) if f.endswith(".pdf")]
+            if pdfs:
+                pdf_path = os.path.join(report_dir, pdfs[0])
+
+    if not pdf_path:
+        return {"evidences": {"vision": [Evidence(
+            goal="swarm_visual",
+            found=False,
+            location="N/A",
+            rationale="No PDF available for vision analysis.",
+            confidence=1.0
+        )]}}
+
+    evidences = []
+    try:
+        # 1. Extract Images
+        image_paths = doc_tools.extract_images_from_pdf(pdf_path)
+        
+        if not image_paths:
+            evidences.append(Evidence(
+                goal="swarm_visual",
+                found=False,
+                location="PDF Images",
+                rationale="No images/diagrams detected in the PDF report.",
+                confidence=0.9
+            ))
+        else:
+            # 2. Analyze first few images (Protocol A)
+            llm = get_llm()
+            # Selection of images to avoid context overflow
+            target_images = image_paths[:3] 
+            
+            for i, img_path in enumerate(target_images):
+                with open(img_path, "rb") as f:
+                    img_data = base64.b64encode(f.read()).decode("utf-8")
+                
+                # We use a standard message for vision-capable models
+                prompt = [
+                    {
+                        "type": "text",
+                        "text": "Analyze this architectural diagram. Is it a LangGraph State machine, a sequence diagram, or generic boxes? Does it show parallel fan-out for Detectives and Judges? Respond in JSON with keys: 'classification', 'is_parallel', 'description'."
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{img_data}"}
+                    }
+                ]
+                
+                try:
+                    # Generic LLM call for vision (assuming provider supports it)
+                    response = llm.invoke(prompt)
+                    analysis = response.content
+                    
+                    evidences.append(Evidence(
+                        goal=f"diagram_analysis_img_{i}",
+                        found=True,
+                        content=analysis[:300],
+                        location=f"PDF Image {i+1}",
+                        rationale="Successfully performed multimodal architectural analysis of diagram.",
+                        confidence=0.8
+                    ))
+                except Exception as ve:
+                    # Fallback if vision API fails
+                    evidences.append(Evidence(
+                        goal=f"diagram_analysis_img_{i}",
+                        found=True,
+                        location=f"PDF Image {i+1}",
+                        rationale=f"Found image but vision analysis failed: {ve}",
+                        confidence=0.5
+                    ))
+
+    except Exception as e:
+        return {"errors": [f"VisionInspector failed: {str(e)}"]}
+
+    return {"evidences": {"vision": evidences}}
 
 
 def evidence_aggregator(state: AgentState) -> Dict:

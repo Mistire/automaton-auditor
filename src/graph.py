@@ -69,27 +69,27 @@ builder.add_node("defense", defense_node)
 builder.add_node("tech_lead", tech_lead_node)
 builder.add_node("chief_justice", chief_justice_node)
 
-# ── Fan-out Phase 1: START → 3 detectives in parallel ────────────
+# ── Phase 1: Serialized/Parallel Detective Layer ──────────────────
+# 1. First, clone the repo and analyze it
 builder.add_edge(START, "repo_investigator")
-builder.add_edge(START, "doc_analyst")
-builder.add_edge(START, "vision_inspector")
 
-# ── Fan-in Phase 1: all detectives → conditional check ───────────
+# 2. After repo is cloned, fan out to other detectives if successful
+builder.add_node("detective_router", lambda x: x)
 builder.add_conditional_edges(
     "repo_investigator",
     should_aggregate_or_abort,
-    {"aggregate": "evidence_aggregator", "abort": "abort"}
+    {
+        "aggregate": "detective_router", 
+        "abort": "abort"
+    }
 )
-builder.add_conditional_edges(
-    "doc_analyst",
-    should_aggregate_or_abort,
-    {"aggregate": "evidence_aggregator", "abort": "abort"}
-)
-builder.add_conditional_edges(
-    "vision_inspector",
-    should_aggregate_or_abort,
-    {"aggregate": "evidence_aggregator", "abort": "abort"}
-)
+
+builder.add_edge("detective_router", "doc_analyst")
+builder.add_edge("detective_router", "vision_inspector")
+
+# Fan-in Detectives
+builder.add_edge("doc_analyst", "evidence_aggregator")
+builder.add_edge("vision_inspector", "evidence_aggregator")
 
 # ── Fan-out Phase 2: Aggregator → Parallel Judges ────────────────
 builder.add_node("router_to_judges", lambda x: x) # Pass-through node for fan-out

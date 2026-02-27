@@ -6,31 +6,7 @@ from langchain_openai import ChatOpenAI
 from src.state import AgentState, JudicialOpinion
 
 
-def get_llm():
-    """
-    Factory to initialize the appropriate LLM based on environment configuration.
-    Supports Google Gemini (native) and OpenRouter (OpenAI-compatible).
-    """
-    provider = os.getenv("LLM_PROVIDER", "gemini").lower()
-    
-    if provider == "openrouter":
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        model = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-lite-preview-09-2025:free")
-        return ChatOpenAI(
-            model=model,
-            api_key=api_key,
-            base_url="https://openrouter.ai/api/v1",
-            temperature=0.1,
-            max_tokens=2000
-        )
-    else:
-        # Default to Gemini
-        api_key = os.getenv("GOOGLE_API_KEY")
-        return ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash", 
-            google_api_key=api_key,
-            temperature=0.1
-        )
+from src.tools.llm_tools import get_llm
 
 
 def create_judge_node(judge_persona: str, judge_name: str):
@@ -117,16 +93,19 @@ def create_judge_node(judge_persona: str, judge_name: str):
 PROSECUTOR_PERSONA = """
 CORE PHILOSOPHY: 'Trust No One. Assume Vibe Coding.'
 OBJECTIVE: Scrutinize the evidence for gaps, security flaws, laziness, and architectural deception.
+STATUTE OF ORCHESTRATION: If the flow is linear instead of parallel, charge 'Orchestration Fraud' (Max Score 1).
+STATUTE OF ENGINEERING: If 'os.system' is used without sanitization, charge 'Security Negligence' (Max Score 1).
 STRATEGY: Be adversarial. If a file is missing or a pattern is weak, penalize heavily. 
 Look for bypassed structure (e.g., using plain dicts instead of Pydantic).
-Charge the defendant with 'Hallucination Liability' if their report claims features the code doesn't have.
+Charge the defendant with 'Hallucination Liability' if their report claims features or file paths the code doesn't have.
 """
 
 # ── Defense Attorney Persona ──────────────────────────────────────────
 DEFENSE_PERSONA = """
 CORE PHILOSOPHY: 'Reward Effort and Intent. Look for the Spirit of the Law.'
 OBJECTIVE: Highlight creative workarounds, deep thought, and iterative effort.
-STRATEGY: Be optimistic. If the code is imperfect but the git history shows genuine struggle and progression, argue for a higher score.
+STATUTE OF EFFORT: If the graph fails to compile but the underlying logic (e.g. AST parsing) is sophisticated, argue for 'Deep Code Comprehension' (Boost Score to 3).
+STRATEGY: Be optimistic. If the code is imperfect but the git history shows genuine struggle (many commits, progression), argue for a higher score.
 Focus on strengths and the 'why' behind decisions. Interpret ambiguous evidence in the developer's favor.
 """
 
@@ -134,9 +113,10 @@ Focus on strengths and the 'why' behind decisions. Interpret ambiguous evidence 
 TECH_LEAD_PERSONA = """
 CORE PHILOSOPHY: 'Does it actually work? Is it maintainable and architecturally sound?'
 OBJECTIVE: Evaluate technical rigor, modularity, and practical viability.
-STRATEGY: Be pragmatic and objective. Ignore the 'Vibe' and the 'Struggle'. 
-Focus on whether the system uses correct patterns (e.g., parallel fan-out, state reducers, sandboxing).
-You are the technical tie-breaker. Assess the 'Technical Debt' realistically.
+STATUTE OF ENGINEERING: State definitions and JSON outputs must use typed structures (BaseModel). If 'Dict Soups' are used, rule 'Technical Debt' (Max Score 3).
+STRATEGY: Be pragmatic and objective. Focus on whether the system uses correct patterns (e.g., parallel fan-out, state reducers).
+You are the technical tie-breaker. Assess the 'Technical Debt' realistically. 
+If the architecture is modular and workable, your judgment carries the highest weight.
 """
 
 # Exported nodes
