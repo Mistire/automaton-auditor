@@ -38,37 +38,34 @@ def chief_justice_node(state: AgentState) -> Dict:
         avg_score = sum(scores) / len(scores)
         variance = max(scores) - min(scores)
         
-        # ── DETERMINISTIC PROTOCOLS ──────────────────────────────────
+        # ── DETERMINISTIC PROTOCOLS (New Rubric v3.0) ─────────────────
         
         final_score = avg_score
         dissent_summary = None
         remediation = tech_lead.argument if tech_lead else "Standard mitigation required."
         
-        # 1. Rule of Security (Protocol B.2)
-        # If Prosecutor cites 'Security Negligence' or 'os.system', override all.
-        if prosecutor and ("security" in prosecutor.argument.lower() or "os.system" in prosecutor.argument.lower()):
-            if "negligence" in prosecutor.argument.lower() or prosecutor.score <= 7:
-                print(f"  ⚠️ Security Override triggered for {dim_id}")
-                final_score = min(final_score, 7) # Cap at level 1/2
-                remediation = f"CRITICAL SECURITY FIX REQUIRED: {prosecutor.argument}"
+        # 1. Rule of Security (CAP AT 3)
+        # If any security forensics or judge flags confirmed flaws
+        safe_tooling = next((e for e in evidences.get("repo", []) if e.goal == "safe_tool_engineering"), None)
+        if (prosecutor and "security" in prosecutor.argument.lower()) or (safe_tooling and not safe_tooling.found):
+            print(f"  🚨 Security Override triggered for {dim_id}")
+            final_score = min(final_score, 3) 
+            remediation = f"CRITICAL SECURITY FIX REQUIRED: {prosecutor.argument if prosecutor else 'Unsafe tool usage detected.'}"
         
-        # 2. Rule of Functionality (Protocol B.2)
-        # Tech Lead weight 50% for technical criteria
-        if tech_lead:
-            # Weighted synthesis: TechLead is the tie-breaker
-            final_score = (tech_lead.score * 0.5) + (avg_score * 0.5)
+        # 2. Rule of Functionality (Tech Lead Highest Weight for Orchestration)
+        if dim_id == "graph_orchestration" and tech_lead:
+            print(f"  🏗️ Functionality Weight: Tech Lead judgment prioritized for {dim_id}")
+            final_score = tech_lead.score
             
-        # 3. Rule of Evidence (Protocol B.3)
-        # Cross-reference: if defense claims something that aggregator marked as missing 
-        # or if DocAnalyst found hallucinations.
+        # 3. Rule of Evidence (Fact Supremacy)
         agg_evidence = evidences.get("aggregation", [])
         doc_evidence = evidences.get("doc", [])
         completeness = next((e for e in agg_evidence if e.goal == "evidence_completeness"), None)
         hallucinations = next((e for e in doc_evidence if e.goal == "path_hallucinations_detected"), None)
         
-        if defense and defense.score > 25:
-             if (completeness and not completeness.found) or hallucinations:
-                print(f"  ⚖️ Evidence Supremacy: Overruling Defense for {dim_id} due to inconsistencies/hallucinations")
+        if defense and defense.score > 21:
+             if (completeness and not completeness.found) or (hallucinations and hallucinations.found):
+                print(f"  ⚖️ Evidence Supremacy: Overruling Defense for {dim_id} due to detected hallucinations/missing code.")
                 final_score = min(final_score, tech_lead.score if tech_lead else 21)
 
         # 4. Map to Rubric Levels (Rounding to nearest valid level)
@@ -78,11 +75,11 @@ def chief_justice_node(state: AgentState) -> Dict:
             if score_values:
                 final_score = min(score_values, key=lambda x: abs(x - final_score))
 
-        # 5. Dissent Summary (PRD Requirement: Variance > 2 for score 1-5, or > 10 for score 0-35)
+        # 5. Dissent Summary (Required for Score Variance > 2 in 1-5 scale, or > 10 in 0-35 scale)
         if variance > 10:
             dissent_summary = (
                 f"Judicial conflict detected. Prosecutor argued for {prosecutor.score if prosecutor else 'N/A'} "
-                f"citing gaps, while Defense pushed for {defense.score if defense else 'N/A'} highlighting intent."
+                f"citing technical gaps, while Defense pushed for {defense.score if defense else 'N/A'} highlighting design intent."
             )
 
         # 6. 'No Exchange' Logic (Challenge Spec Optimization)
@@ -139,15 +136,22 @@ def chief_justice_node(state: AgentState) -> Dict:
 
 
 def save_report_to_file(report: AuditReport, total_possible: int):
-    """Serializes the AuditReport model to a Markdown file in the audit/ folder."""
+    """Serializes the AuditReport model to a Markdown file in the appropriate audit/ subfolder."""
     import os
     
-    report_dir = "audit/reports_generated"
+    # Determine target subfolder based on repo_url
+    url = report.repo_url.lower()
+    if "local_audit" in url or "mistire" in url:
+        subfolder = "report_onself_generated"
+    else:
+        subfolder = "report_onpeer_generated"
+        
+    report_dir = os.path.join("audit", subfolder)
     os.makedirs(report_dir, exist_ok=True)
     
     # Create filename from URL/timestamp
     safe_name = report.repo_url.replace("https://", "").replace("http://", "").replace("/", "_").replace(".", "_")
-    filename = f"{report_dir}/audit_{safe_name}.md"
+    filename = os.path.join(report_dir, f"audit_{safe_name}.md")
     
     # Raw point sum for the header
     total_points = sum(c.final_score for c in report.criteria)
