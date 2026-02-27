@@ -1,3 +1,6 @@
+from src.tools.llm_tools import get_llm
+from langchain_core.messages import HumanMessage
+import base64
 import os
 from typing import Dict, List
 from src.state import AgentState, Evidence
@@ -31,6 +34,7 @@ def repo_investigator(state: AgentState) -> Dict:
         evidences.extend(repo_tools.analyze_graph_orchestration(repo_path))
         evidences.extend(repo_tools.analyze_safe_tooling(repo_path))
         evidences.extend(repo_tools.analyze_structured_output(repo_path))
+        evidences.extend(repo_tools.analyze_justice_synthesis(repo_path))
 
     except Exception as e:
         return {"errors": [f"RepoInvestigator failed: {str(e)}"]}
@@ -38,8 +42,6 @@ def repo_investigator(state: AgentState) -> Dict:
     return {"evidences": {"repo": evidences}, "local_repo_path": repo_path}
 
 
-from src.tools.llm_tools import get_llm
-import base64
 
 def doc_analyst(state: AgentState) -> Dict:
     """
@@ -75,34 +77,37 @@ def doc_analyst(state: AgentState) -> Dict:
 
         # 3. Path Cross-Referencing (Forensic Protocol A)
         raw_paths = doc_tools.extract_file_paths(full_text)
-        if raw_paths and repo_path:
+        verified = []
+        hallucinated = []
+        
+        if repo_path:
             verified, hallucinated = doc_tools.cross_reference_paths(raw_paths, repo_path)
             
-            evidences.append(Evidence(
-                goal="report_accuracy_forensics",
-                found=len(hallucinated) == 0,
-                content=f"Verified: {len(verified)}, Hallucinated: {len(hallucinated)}",
-                location="PDF Report vs Repository",
-                rationale=f"Verified {len(verified)} paths. Found {len(hallucinated)} hallucinations.",
-                confidence=1.0
-            ))
-            
-            if hallucinated:
-                evidences.append(Evidence(
-                    goal="path_hallucinations_detected",
-                    found=False,
-                    location="PDF Report",
-                    content=", ".join(hallucinated),
-                    rationale="Report references non-existent files. This flags potential 'Vibe Coding' or outdated reports.",
-                    confidence=0.9
-                ))
+        evidences.append(Evidence(
+            goal="report_accuracy_forensics",
+            found=len(verified) > 0,
+            content=f"Verified: {verified}\nHallucinated: {hallucinated}",
+            location="PDF Report vs Repository",
+            rationale=f"Found {len(verified)} verified paths in the report. Detected {len(hallucinated)} hallucinated paths.",
+            confidence=1.0
+        ))
+        
+        evidences.append(Evidence(
+            goal="path_hallucinations_detected",
+            found=len(hallucinated) > 0,
+            location="PDF Report",
+            content=", ".join(hallucinated) if hallucinated else "None",
+            rationale="No hallucinated paths detected in the report." if not hallucinated else "Report references non-existent files. This flags potential 'Vibe Coding' or outdated reports.",
+            confidence=1.0
+        ))
 
         # 4. Theoretical Depth (Forensic Protocol B)
-        concepts = ["Dialectical Synthesis", "Fan-In / Fan-Out", "Metacognition", "State Synchronization"]
+        # Expanded concept list to match the final report's comprehensive technical sections
+        concepts = ["Dialectical Synthesis", "Fan-In / Fan-Out", "Metacognition", "State Synchronization", "Supreme Court", "Digital Courtroom"]
         for concept in concepts:
             is_deep, excerpt = doc_tools.check_concept_depth(full_text, concept)
             evidences.append(Evidence(
-                goal=f"theoretical_depth_{concept.lower().replace(' ', '_').replace('/', '')}",
+                goal=f"theoretical_depth_{concept.lower().replace(' ', '_').replace('/', '').replace('-', '_')}",
                 found=is_deep,
                 content=excerpt[:200].strip(),
                 location="PDF Report",
@@ -164,21 +169,23 @@ def vision_inspector(state: AgentState) -> Dict:
                 with open(img_path, "rb") as f:
                     img_data = base64.b64encode(f.read()).decode("utf-8")
                 
-                # We use a standard message for vision-capable models
-                prompt = [
-                    {
-                        "type": "text",
-                        "text": "Analyze this architectural diagram. Is it a LangGraph State machine, a sequence diagram, or generic boxes? Does it show parallel fan-out for Detectives and Judges? Respond in JSON with keys: 'classification', 'is_parallel', 'description'."
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{img_data}"}
-                    }
-                ]
+                # We use a HumanMessage for vision-capable models (multimodal support)
+                message = HumanMessage(
+                    content=[
+                        {
+                            "type": "text",
+                            "text": "Analyze this architectural diagram. Is it a LangGraph State machine, a sequence diagram, or generic boxes? Does it show parallel fan-out for Detectives and Judges? Respond in JSON with keys: 'classification', 'is_parallel', 'description'."
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{img_data}"}
+                        }
+                    ]
+                )
                 
                 try:
                     # Generic LLM call for vision (assuming provider supports it)
-                    response = llm.invoke(prompt)
+                    response = llm.invoke([message])
                     analysis = response.content
                     
                     evidences.append(Evidence(

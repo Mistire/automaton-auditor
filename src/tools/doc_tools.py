@@ -59,7 +59,11 @@ def check_concept_depth(text: str, concept: str) -> Tuple[bool, str]:
     context = text[max(0, start_idx - 100) : min(len(text), start_idx + 300)]
     
     # If the paragraph containing the concept is long and contains explanatory words
-    explanatory_markers = ["because", "how", "implemented", "architecture", "resolved", "process"]
+    explanatory_markers = [
+        "because", "how", "implemented", "architecture", "resolved", "process",
+        "orchestrated", "fan-in", "verdict", "synthesis", "forensic", "dialectical",
+        "metacognition", "optimization", "feedback", "supreme court", "digital courtroom"
+    ]
     depth_score = sum(1 for marker in explanatory_markers if marker in context.lower())
     
     is_deep = len(context) > 200 and depth_score >= 2

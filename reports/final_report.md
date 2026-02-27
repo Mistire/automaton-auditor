@@ -50,7 +50,7 @@ The `DocAnalyst` performs a forensic bridge between the documentation and the re
 
 - **Procedure:** Extracts every file path mention from the PDF text using regex.
 - **Verification:** Cross-references every claimed path against the actual files in the cloned sandbox.
-- **Hallucination Detection:** If the report claims logic exists in `src/logic/engine.py` but the file is missing, the system recorded a **Hallucination Liability**.
+- **Hallucination Detection:** If the report claims logic exists in non-existent folders, the system records a **Hallucination Liability**. (Verified against `src/graph.py`, `src/nodes/justice.py`, and `src/state.py`).
 
 ---
 
@@ -135,13 +135,13 @@ The `ChiefJusticeNode` is the only node that doesn't use an LLM. It is a pure lo
 
 ```python
 # Rule of Security (Protocol B.2)
-if prosecutor.cites("Security Negligence"):
-    final_score = min(avg_score, 7) # Hard cap at Level 1/2
+if "security" in prosecutor.argument or not safe_tooling.found:
+    final_score = min(avg_score, 3) # Hard cap at Level 1 (Strict)
     remediation = "CRITICAL SECURITY OVERRIDE TRIGGERED"
 
 # Rule of Evidence (Protocol B.3)
-if doc_analyst.hallucination_detected:
-    final_score = min(final_score, tech_lead.score) # Strip Defense bonus
+if doc_analyst.hallucinations_detected:
+    final_score = min(final_score, tech_lead.score) # Fact supremacy over optimism
 ```
 
 ### 5.1 Synthesis Resolution Rules
@@ -173,7 +173,7 @@ if doc_analyst.hallucination_detected:
 - **`src/state.py`**: Pydantic models with `Annotated` reducers for parallel state management.
 - **`src/tools/safety.py`**: Centralized sandboxing and shell-less execution.
 - **`src/nodes/justice.py`**: The deterministic "Supreme Court" logic.
-- **`audit/reports_generated/`**: Final Markdown verdicts with Dissent Summaries and Remediation Plans.
+- **`audit/report_onself_generated/`**: Final Markdown verdicts with Dissent Summaries and Remediation Plans.
 
 ---
 

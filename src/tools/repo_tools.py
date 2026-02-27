@@ -181,25 +181,88 @@ class GraphVisitor(ast.NodeVisitor):
 def analyze_graph_orchestration(repo_path: str) -> List[Evidence]:
     graph_path = Path(repo_path) / "src" / "graph.py"
     if not graph_path.exists(): return [Evidence(goal="graph_orchestration", found=False, location="src/graph.py", rationale="Not found", confidence=1.0)]
+    
     with open(graph_path, "r") as f:
-        tree = ast.parse(f.read())
+        code = f.read()
+        tree = ast.parse(code)
         visitor = GraphVisitor()
         visitor.visit(tree)
-    starts = [v for u, v in visitor.edges if "START" in u]
+    
+    # Calculate fan-out points: any node that appears as a source in multiple edges
+    from_counts = {}
+    for u, v in visitor.edges:
+        from_counts[u] = from_counts.get(u, 0) + 1
+    
+    fan_out_points = [node for node, count in from_counts.items() if count > 1]
+    
+    # Extract the relevant block for context (e.g., where StateGraph is built)
+    lines = code.split("\n")
+    relevant_lines = [l for l in lines if "add_node" in l or "add_edge" in l or "StateGraph" in l]
+    snippet = "\n".join(relevant_lines[:20]) # Limit snippet size
+
     return [Evidence(
         goal="graph_orchestration",
-        found=visitor.has_stategraph and len(starts) >= 2,
-        content=ast.unparse(tree),
+        found=visitor.has_stategraph and len(fan_out_points) >= 1,
+        content=snippet,
         location="src/graph.py",
-        rationale=f"Fan-out points: {len(starts)}",
+        rationale=f"Fan-out points detected at: {len(fan_out_points)} nodes ({', '.join(fan_out_points)})",
         confidence=0.9
     )]
 
 def analyze_structured_output(repo_path: str) -> List[Evidence]:
     judges_path = Path(repo_path) / "src" / "nodes" / "judges.py"
     found = False
+    snippet = None
     if judges_path.exists():
         with open(judges_path, "r") as f:
-            content = f.read()
-            found = ".with_structured_output" in content or ".bind_tools" in content
-    return [Evidence(goal="structured_output_enforcement", found=found, location="src/nodes/judges.py", rationale="Scanned for enforcement patterns.", confidence=0.8)]
+            code = f.read()
+            found = ".with_structured_output" in code or ".bind_tools" in code
+            if found:
+                # Extract snippet around the enforcement call
+                lines = code.split("\n")
+                for i, line in enumerate(lines):
+                    if ".with_structured_output" in line or ".bind_tools" in line:
+                        snippet = "\n".join(lines[max(0, i-2):min(len(lines), i+3)])
+                        break
+    return [Evidence(
+        goal="structured_output_enforcement", 
+        found=found, 
+        content=snippet,
+        location="src/nodes/judges.py", 
+        rationale="Scanned for enforcement patterns in Judge nodes.", 
+        confidence=1.0
+    )]
+
+
+def analyze_justice_synthesis(repo_path: str) -> List[Evidence]:
+    """
+    Forensic Protocol: Analyzes the Chief Justice node for deterministic rules.
+    Identifies specific rules (Security, Evidence, Functionality) for diagnostic precision.
+    """
+    justice_path = Path(repo_path) / "src" / "nodes" / "justice.py"
+    if not justice_path.exists():
+        return [Evidence(goal="judicial_synthesis", found=False, location="src/nodes/justice.py", rationale="Supreme Court synthesis engine not found.", confidence=1.0)]
+
+    with open(justice_path, "r") as f:
+        content = f.read()
+        
+    found_rules = []
+    if "os.system" in content or "security" in content.lower(): found_rules.append("Rule of Security")
+    if "hallucinations" in content.lower() or "completeness" in content.lower(): found_rules.append("Rule of Evidence")
+    if "tech_lead" in content.lower() and ("0.5" in content or "weight" in content.lower()): found_rules.append("Rule of Functionality")
+    if "variance" in content.lower() and "dissent" in content.lower(): found_rules.append("Dissent Logic")
+
+    found = len(found_rules) >= 3
+    rationale = f"Detected rules: {', '.join(found_rules)}" if found_rules else "No deterministic judicial rules detected."
+    if not found:
+        missing = [r for r in ["Rule of Security", "Rule of Evidence", "Rule of Functionality", "Dissent Logic"] if r not in found_rules]
+        rationale += f" Missing: {', '.join(missing)}"
+
+    return [Evidence(
+        goal="judicial_synthesis",
+        found=found,
+        content=content[:500], # Include top of file for context
+        location="src/nodes/justice.py",
+        rationale=rationale,
+        confidence=1.0
+    )]

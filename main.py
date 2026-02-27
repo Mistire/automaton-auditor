@@ -63,7 +63,7 @@ def run_audit(repo_url: str, pdf_path: str = ""):
                 print(f"      Snippet:   {snippet}...")
     
     print("\n" + "="*50)
-    print("🏁 Interim Audit Complete")
+    print("🏁 Audit Complete")
     print("="*50)
 
 
