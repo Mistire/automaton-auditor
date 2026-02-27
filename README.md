@@ -4,7 +4,7 @@
 
 The Automaton Auditor is a production-grade multi-agent system designed to audit GitHub repositories and architectural reports. It uses a hierarchical swarm of specialized agents to verify code structure, analyze git history, and assess documentation depth through a dialectical judicial process.
 
-## 🏛️ Architecture: The Digital Courtroom
+## Architecture: The Digital Courtroom
 
 The system implements a **Hierarchical State Graph** with three specialized layers:
 
@@ -44,7 +44,7 @@ graph TD
     CJ --> END((END))
 ```
 
-## ⚙️ Setup
+## Setup
 
 ### Prerequisites
 
@@ -69,7 +69,7 @@ graph TD
     # Edit .env and set your LLM_PROVIDER and API keys
     ```
 
-## 🚀 Usage
+## Usage
 
 Run the auditor against any GitHub repository URL. The system will automatically discover the internal PDF report in the `reports/` folder.
 
@@ -87,7 +87,7 @@ uv run python main.py https://github.com/peer/week-2-repo
 uv run python main.py https://github.com/Mistire/automaton-auditor
 ```
 
-## ⚖️ Output
+## Output
 
 The auditor generates a structured Markdown report in `audit/reports_generated/` containing:
 
@@ -95,7 +95,7 @@ The auditor generates a structured Markdown report in `audit/reports_generated/`
 - **Criterion Breakdown**: 10-dimension analysis with individual judge opinions and dissent summaries.
 - **Remediation Plan**: Actionable, file-level instructions for improvement.
 
-## 🏁 Final Submission Requirements
+## Final Submission Requirements
 
 Before submitting, ensure you have:
 
