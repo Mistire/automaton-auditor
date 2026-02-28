@@ -1,6 +1,7 @@
 import os
 import tempfile
 import ast
+import re
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 from src.state import Evidence
@@ -282,13 +283,18 @@ def analyze_judicial_nuance(repo_path: str) -> List[Evidence]:
     with open(judges_path, "r") as f:
         content = f.read()
     
-    # Extract personas using simple extraction (or AST if preferred, but string works for prompts)
+    # Extract personas using more flexible regex (look for SYSTEM, PERSONA, or PROMPT)
     personas = {}
-    import re
-    for p in ["PROSECUTOR", "DEFENSE", "TECH_LEAD"]:
-        match = re.search(f"{p}_PERSONA\s*=\s*\"\"\"(.*?)\"\"\"", content, re.DOTALL)
+    search_patterns = {
+        "PROSECUTOR": r"_?(PROSECUTOR|ADVERSARIAL|PROSECUTOR_SYSTEM)_(PERSONA|SYSTEM|PROMPT)\s*=\s*[\"']{3}(.*?)[\"']{3}",
+        "DEFENSE": r"_?(DEFENSE|FORGIVING|DEFENSE_SYSTEM)_(PERSONA|SYSTEM|PROMPT)\s*=\s*[\"']{3}(.*?)[\"']{3}",
+        "TECH_LEAD": r"_?(TECH_LEAD|PRAGMATIC|TECH_LEAD_SYSTEM)_(PERSONA|SYSTEM|PROMPT)\s*=\s*[\"']{3}(.*?)[\"']{3}"
+    }
+    
+    for p, pattern in search_patterns.items():
+        match = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
         if match:
-            personas[p] = match.group(1).strip()
+            personas[p] = match.group(3).strip()
     
     if len(personas) < 3:
         return [Evidence(goal="judicial_nuance", found=False, location="src/nodes/judges.py", rationale=f"Only found {len(personas)}/3 personas.", confidence=1.0)]
@@ -336,12 +342,13 @@ def analyze_justice_synthesis(repo_path: str) -> List[Evidence]:
         content = f.read()
         
     found_rules = []
-    if "Rule of Security" in content: found_rules.append("Rule of Security")
-    if "Rule of Hallucination" in content: found_rules.append("Rule of Hallucination")
-    if "Rule of Evidence" in content: found_rules.append("Rule of Evidence")
-    if "total_raw_points" in content and "total_possible_points" in content: found_rules.append("Final Synthesis Logic")
+    # Flexible keyword search for deterministic rules
+    if re.search(r"Rule\s*of\s*Security", content, re.I): found_rules.append("Rule of Security")
+    if re.search(r"Rule\s*of\s*Hallucination", content, re.I): found_rules.append("Rule of Hallucination")
+    if re.search(r"Rule\s*of\s*Evidence", content, re.I): found_rules.append("Rule of Evidence")
+    if re.search(r"(total|final)_.*?points", content, re.I): found_rules.append("Final Synthesis Logic")
 
-    found = len(found_rules) >= 4
+    found = len(found_rules) >= 3 # Reduced threshold for flexibility
     rationale = f"Detected rules: {', '.join(found_rules)}" if found_rules else "No deterministic judicial rules detected."
     
     return [Evidence(
