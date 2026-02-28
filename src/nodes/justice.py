@@ -36,7 +36,11 @@ def chief_justice_node(state: AgentState) -> Dict:
         
         # Rule of Security: CAP AT Level 1 (2/10) if raw OS system or API keys found
         safe_tooling = next((e for e in evidences.get("repo", []) if e.goal == "safe_tool_engineering"), None)
-        if (safe_tooling and not safe_tooling.found) or (prosecutor and "security" in prosecutor.argument.lower()):
+        
+        # Refined check: Only trigger if forensics failed OR prosecutor explicitly mentions a violation/negligence
+        security_violation = prosecutor and any(word in prosecutor.argument.lower() for word in ["security violation", "security failure", "security negligence", "insecure"])
+        
+        if (safe_tooling and not safe_tooling.found) or security_violation:
              floor_score = 2.0 # Level 1 on 1-10 scale
              if final_score > floor_score:
                  final_score = floor_score
