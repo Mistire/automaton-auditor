@@ -9,111 +9,129 @@ from src.tools import repo_tools, doc_tools
 
 def repo_investigator(state: AgentState) -> Dict:
     """
-    Detective Node: Analyzes the repository structure and history.
-    Supports local testing mode if local_repo_path is pre-provided.
+    Detective Node: Analyzes the repository dynamically based on the rubric.
+    Iterates through rubric dimensions and dispatches to specialized tools or fallback.
     """
     repo_url = state.repo_url
     local_path = state.local_repo_path
+    dimensions = state.rubric_dimensions
     
     evidences = []
     repo_path = None
     
+    # 1. Specialized Dispatch Mapping
+    REPOMAPPING = {
+        "git_forensic_analysis": repo_tools.extract_git_history,
+        "state_management_rigor": repo_tools.analyze_state_structure,
+        "graph_orchestration": repo_tools.analyze_graph_orchestration,
+        "safe_tool_engineering": repo_tools.analyze_safe_tooling,
+        "structured_output_enforcement": repo_tools.analyze_structured_output,
+        "judicial_nuance": repo_tools.analyze_judicial_nuance,
+        "chief_justice_synthesis": repo_tools.analyze_justice_synthesis,
+    }
+
     try:
+        # Clone or use local
         if local_path and os.path.exists(local_path):
-            print(f"🏠 Local Testing Mode: Using existing path {local_path}")
             repo_path = local_path
         else:
             if not repo_url:
-                return {"errors": ["RepoInvestigator: No repository URL provided and no local path found."]}
-            print(f"🌐 Cloning repository: {repo_url}")
+                return {"errors": ["RepoInvestigator: No source provided."]}
+            print(f"🌐 Cloning: {repo_url}")
             repo_path = repo_tools.clone_repo(repo_url)
 
-        # Execute all forensic protocols
-        evidences.extend(repo_tools.extract_git_history(repo_path))
-        evidences.extend(repo_tools.analyze_state_structure(repo_path))
-        evidences.extend(repo_tools.analyze_graph_orchestration(repo_path))
-        evidences.extend(repo_tools.analyze_safe_tooling(repo_path))
-        evidences.extend(repo_tools.analyze_structured_output(repo_path))
-        evidences.extend(repo_tools.analyze_justice_synthesis(repo_path))
+        # 2. Dynamic Execution Loop
+        for dim in dimensions:
+            if dim.get("target_artifact") != "github_repo":
+                continue
+                
+            dim_id = dim["id"]
+            print(f"🔍 Investigating: {dim_id}")
+            
+            if dim_id in REPOMAPPING:
+                # Dispatch to specialized logic
+                evidences.extend(REPOMAPPING[dim_id](repo_path))
+            else:
+                # ADAPTIVE FALLBACK: Use crawler with keywords from instruction
+                instr = dim.get("forensic_instruction", "")
+                # Basic keyword extraction (split by space, filter small words)
+                keywords = [w.strip("',.") for w in instr.split() if len(w) > 4][:5]
+                print(f"  ⚠️ No specialized tool for {dim_id}. Falling back to keyword crawl: {keywords}")
+                evidences.extend(repo_tools.file_content_crawler(repo_path, keywords))
 
     except Exception as e:
         return {"errors": [f"RepoInvestigator failed: {str(e)}"]}
 
-    return {"evidences": {"repo": evidences}, "local_repo_path": repo_path}
+    # PDF Discovery (Shared with other detectives running in parallel)
+    pdf_path = None
+    if repo_path:
+        report_dir = os.path.join(repo_path, "reports")
+        if os.path.exists(report_dir):
+            pdfs = [f for f in os.listdir(report_dir) if f.endswith(".pdf")]
+            if pdfs: pdf_path = os.path.join(report_dir, pdfs[0])
+
+    return {"evidences": {"repo": evidences}, "local_repo_path": repo_path, "pdf_path": pdf_path}
 
 
 
 def doc_analyst(state: AgentState) -> Dict:
     """
-    Detective Node: Analyzes the architectural PDF report.
-    Checks concept depth and performs forensic cross-referencing of file paths.
+    Detective Node: Analyzes the architectural PDF report dynamically.
+    Refactored to be instruction-aware based on the rubric.
     """
     pdf_path = state.pdf_path
     repo_path = state.local_repo_path
+    dimensions = state.rubric_dimensions
 
-    # 1. Internal PDF Discovery (from earlier implementation)
-    if not pdf_path and repo_path:
-        report_dir = os.path.join(repo_path, "reports")
-        if os.path.exists(report_dir):
-            pdfs = [f for f in os.listdir(report_dir) if f.endswith(".pdf")]
-            if pdfs:
-                pdf_path = os.path.join(report_dir, pdfs[0])
-                print(f"📂 Found internal PDF report: {pdf_path}")
+    # PDF is now discovered by repo_investigator and shared via state
 
     if not pdf_path:
-        return {"evidences": {"doc": [Evidence(
-            goal="pdf_report_existence",
-            found=False,
-            location="N/A",
-            rationale="No PDF report path provided and no PDF found in internal 'reports/' folder.",
-            confidence=1.0
-        )]}}
+        return {"evidences": {"doc": [Evidence(goal="pdf_report", found=False, location="N/A", rationale="No PDF found.", confidence=1.0)]}}
 
     evidences = []
     try:
-        # 2. Ingest PDF
         chunks = doc_tools.ingest_pdf(pdf_path)
         full_text = "\n".join([c["text"] for c in chunks])
 
-        # 3. Path Cross-Referencing (Forensic Protocol A)
-        raw_paths = doc_tools.extract_file_paths(full_text)
-        verified = []
-        hallucinated = []
-        
-        if repo_path:
-            verified, hallucinated = doc_tools.cross_reference_paths(raw_paths, repo_path)
+        for dim in dimensions:
+            if dim.get("target_artifact") != "pdf_report":
+                continue
             
-        evidences.append(Evidence(
-            goal="report_accuracy_forensics",
-            found=len(verified) > 0,
-            content=f"Verified: {verified}\nHallucinated: {hallucinated}",
-            location="PDF Report vs Repository",
-            rationale=f"Found {len(verified)} verified paths in the report. Detected {len(hallucinated)} hallucinated paths.",
-            confidence=1.0
-        ))
-        
-        evidences.append(Evidence(
-            goal="path_hallucinations_detected",
-            found=len(hallucinated) > 0,
-            location="PDF Report",
-            content=", ".join(hallucinated) if hallucinated else "None",
-            rationale="No hallucinated paths detected in the report." if not hallucinated else "Report references non-existent files. This flags potential 'Vibe Coding' or outdated reports.",
-            confidence=1.0
-        ))
-
-        # 4. Theoretical Depth (Forensic Protocol B)
-        # Expanded concept list to match the final report's comprehensive technical sections
-        concepts = ["Dialectical Synthesis", "Fan-In / Fan-Out", "Metacognition", "State Synchronization", "Supreme Court", "Digital Courtroom"]
-        for concept in concepts:
-            is_deep, excerpt = doc_tools.check_concept_depth(full_text, concept)
-            evidences.append(Evidence(
-                goal=f"theoretical_depth_{concept.lower().replace(' ', '_').replace('/', '').replace('-', '_')}",
-                found=is_deep,
-                content=excerpt[:200].strip(),
-                location="PDF Report",
-                rationale=f"Assessed depth for '{concept}'. Found = {is_deep}.",
-                confidence=0.8
-            ))
+            dim_id = dim["id"]
+            instr = dim.get("forensic_instruction", "")
+            
+            if dim_id == "report_accuracy":
+                raw_paths = doc_tools.extract_file_paths(full_text)
+                if repo_path:
+                    verified, hallucinated = doc_tools.cross_reference_paths(raw_paths, repo_path)
+                    evidences.append(Evidence(
+                        goal="report_accuracy", found=len(verified) > 0,
+                        content=f"Verified: {verified}\nHallucinated: {hallucinated}",
+                        location="PDF Report", rationale=f"Cross-referenced {len(raw_paths)} paths.", confidence=1.0
+                    ))
+                    if hallucinated:
+                        evidences.append(Evidence(goal="path_hallucinations_detected", found=True, content=", ".join(hallucinated), location="PDF Report", rationale="Hallucinated paths detected.", confidence=1.0))
+            
+            elif dim_id == "theoretical_depth":
+                concepts = ["Dialectical Synthesis", "Fan-In", "Metacognition", "State Synchronization"]
+                for concept in concepts:
+                    is_deep, excerpt = doc_tools.check_concept_depth(full_text, concept)
+                    evidences.append(Evidence(goal=f"depth_{concept.lower()}", found=is_deep, content=excerpt[:200], location="PDF Report", rationale=f"Depth check for {concept}", confidence=0.8))
+            
+            else:
+                # ADAPTIVE FALLBACK: Keyword search in PDF
+                keywords = [w.strip("',.") for w in instr.split() if len(w) > 4][:3]
+                found = any(k.lower() in full_text.lower() for k in keywords)
+                snippet = ""
+                if found:
+                    k = next(k for k in keywords if k.lower() in full_text.lower())
+                    idx = full_text.lower().find(k.lower())
+                    snippet = full_text[max(0, idx-100):idx+200]
+                
+                evidences.append(Evidence(
+                    goal=dim_id, found=found, content=snippet, location="PDF text search",
+                    rationale=f"Adaptive PDF check for keywords: {keywords}", confidence=0.7
+                ))
 
     except Exception as e:
         return {"errors": [f"DocAnalyst failed: {str(e)}"]}
@@ -123,88 +141,48 @@ def doc_analyst(state: AgentState) -> Dict:
 
 def vision_inspector(state: AgentState) -> Dict:
     """
-    Detective Node: Analyzes architectural diagrams in the PDF (Protocol A - Swarm Visual).
-    Uses multimodal LLM analysis if images are found.
+    Detective Node: Analyzes PDF images dynamically based on the rubric.
     """
     pdf_path = state.pdf_path
-    repo_path = state.local_repo_path
+    dimensions = state.rubric_dimensions
     
-    # Discovery logic if not provided
-    if not pdf_path and repo_path:
-        report_dir = os.path.join(repo_path, "reports")
-        if os.path.exists(report_dir):
-            pdfs = [f for f in os.listdir(report_dir) if f.endswith(".pdf")]
-            if pdfs:
-                pdf_path = os.path.join(report_dir, pdfs[0])
-
     if not pdf_path:
-        return {"evidences": {"vision": [Evidence(
-            goal="swarm_visual",
-            found=False,
-            location="N/A",
-            rationale="No PDF available for vision analysis.",
-            confidence=1.0
-        )]}}
+        return {"evidences": {"vision": [Evidence(goal="pdf_vision", found=False, location="N/A", rationale="No PDF for vision.", confidence=1.0)]}}
 
     evidences = []
     try:
-        # 1. Extract Images
         image_paths = doc_tools.extract_images_from_pdf(pdf_path)
-        
         if not image_paths:
-            evidences.append(Evidence(
-                goal="swarm_visual",
-                found=False,
-                location="PDF Images",
-                rationale="No images/diagrams detected in the PDF report.",
-                confidence=0.9
-            ))
-        else:
-            # 2. Analyze first few images (Protocol A)
-            llm = get_llm()
-            # Selection of images to avoid context overflow
-            target_images = image_paths[:3] 
+            return {"evidences": {"vision": [Evidence(goal="pdf_images", found=False, location="PDF", rationale="No images found.", confidence=0.9)]}}
+
+        vision_llm = get_llm(model_id="google/gemini-2.0-flash:free")
+        target_images = image_paths[:2] # Limit to 2 images for efficiency
+
+        for dim in dimensions:
+            if dim.get("target_artifact") != "pdf_images":
+                continue
+            
+            dim_id = dim["id"]
+            instr = dim.get("forensic_instruction", "")
             
             for i, img_path in enumerate(target_images):
                 with open(img_path, "rb") as f:
                     img_data = base64.b64encode(f.read()).decode("utf-8")
                 
-                # We use a HumanMessage for vision-capable models (multimodal support)
-                message = HumanMessage(
-                    content=[
-                        {
-                            "type": "text",
-                            "text": "Analyze this architectural diagram. Is it a LangGraph State machine, a sequence diagram, or generic boxes? Does it show parallel fan-out for Detectives and Judges? Respond in JSON with keys: 'classification', 'is_parallel', 'description'."
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{img_data}"}
-                        }
-                    ]
-                )
+                message = HumanMessage(content=[
+                    {"type": "text", "text": f"Evaluate this image for the rubric dimension: {dim_id}\nInstruction: {instr}\nRespond in JSON with 'found' (bool), 'description' (str), and 'parallel_patterns' (str)."},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_data}"}}
+                ])
                 
                 try:
-                    # Generic LLM call for vision (assuming provider supports it)
-                    response = llm.invoke([message])
-                    analysis = response.content
-                    
+                    res = vision_llm.invoke([message])
                     evidences.append(Evidence(
-                        goal=f"diagram_analysis_img_{i}",
-                        found=True,
-                        content=analysis[:300],
-                        location=f"PDF Image {i+1}",
-                        rationale="Successfully performed multimodal architectural analysis of diagram.",
-                        confidence=0.8
+                        goal=f"{dim_id}_img_{i}", found=True, content=res.content[:300],
+                        location=f"Image {i+1}", rationale=f"Multimodal analysis of {dim_id}", confidence=0.8
                     ))
                 except Exception as ve:
-                    # Fallback if vision API fails
-                    evidences.append(Evidence(
-                        goal=f"diagram_analysis_img_{i}",
-                        found=True,
-                        location=f"PDF Image {i+1}",
-                        rationale=f"Found image but vision analysis failed: {ve}",
-                        confidence=0.5
-                    ))
+                    print(f"Vision error for {dim_id}: {ve}")
+                    continue
 
     except Exception as e:
         return {"errors": [f"VisionInspector failed: {str(e)}"]}
@@ -214,57 +192,23 @@ def vision_inspector(state: AgentState) -> Dict:
 
 def evidence_aggregator(state: AgentState) -> Dict:
     """
-    Synchronization Node: Consolidates, normalizes, and cross-references
-    all evidence collected by the parallel detectives.
-
-    Performs:
-    1. Evidence completeness audit — flags missing detective sources
-    2. Cross-reference verification — matches report path claims vs repo reality
-    3. Confidence normalization — computes per-source and overall stats
-    4. Summary generation — produces an aggregated evidence profile
+    Synchronization Node: Consolidates evidence dynamically.
     """
     evidences = state.evidences
-    errors = state.errors
     aggregation_evidence = []
 
-    # ── 1. Completeness Audit ─────────────────────────────────────
+    # 1. Completeness Audit
     expected_sources = ["repo", "doc", "vision"]
     missing_sources = [s for s in expected_sources if s not in evidences]
     present_sources = [s for s in expected_sources if s in evidences]
 
     aggregation_evidence.append(Evidence(
-        goal="evidence_completeness",
-        found=len(missing_sources) == 0,
+        goal="evidence_completeness", found=len(missing_sources) == 0,
         content=f"Present: {present_sources}, Missing: {missing_sources}",
-        location="EvidenceAggregator",
-        rationale=f"{len(present_sources)}/{len(expected_sources)} detective sources reported evidence.",
-        confidence=1.0
+        location="Aggregator", rationale=f"Audited {len(present_sources)} branches.", confidence=1.0
     ))
 
-    # ── 2. Cross-Reference: Report Claims vs Repo Reality ─────────
-    repo_evidence = evidences.get("repo", [])
-    doc_evidence = evidences.get("doc", [])
-
-    # Find the file path claims from doc_analyst
-    path_claims_evidence = next(
-        (e for e in doc_evidence if e.goal == "report_file_path_claims"),
-        None
-    )
-
-    if path_claims_evidence and path_claims_evidence.content and repo_evidence:
-        claimed_paths = [p.strip() for p in path_claims_evidence.content.split(",")]
-        # We can't directly check files here (no repo path in state),
-        # but we can flag whether path claims exist and were extracted
-        aggregation_evidence.append(Evidence(
-            goal="cross_reference_readiness",
-            found=True,
-            content=f"{len(claimed_paths)} paths to verify against repo structure",
-            location="EvidenceAggregator",
-            rationale="Report path claims extracted and ready for cross-reference with repo evidence.",
-            confidence=0.85
-        ))
-
-    # ── 3. Confidence Normalization ───────────────────────────────
+    # 2. Dynamic Summary
     all_evidence_items = []
     for source, items in evidences.items():
         all_evidence_items.extend(items)
@@ -275,32 +219,10 @@ def evidence_aggregator(state: AgentState) -> Dict:
         total_count = len(all_evidence_items)
 
         aggregation_evidence.append(Evidence(
-            goal="evidence_quality_summary",
-            found=avg_confidence > 0.5,
-            content=(
-                f"Total items: {total_count}, "
-                f"Found: {found_count}, "
-                f"Missing: {total_count - found_count}, "
-                f"Avg confidence: {avg_confidence:.2f}"
-            ),
-            location="EvidenceAggregator",
-            rationale=(
-                f"Aggregated {total_count} evidence items across {len(present_sources)} sources. "
-                f"{found_count}/{total_count} findings were positive. "
-                f"Average confidence: {avg_confidence:.2f}."
-            ),
+            goal="quality_audit", found=avg_confidence > 0.6,
+            content=f"Found {found_count} of {total_count} forensic markers.",
+            location="Aggregator", rationale=f"Normalized confidence: {avg_confidence:.2f}",
             confidence=avg_confidence
-        ))
-
-    # ── 4. Error Summary ──────────────────────────────────────────
-    if errors:
-        aggregation_evidence.append(Evidence(
-            goal="error_summary",
-            found=False,
-            content="; ".join(errors),
-            location="EvidenceAggregator",
-            rationale=f"{len(errors)} error(s) occurred during detective execution.",
-            confidence=1.0
         ))
 
     return {"evidences": {"aggregation": aggregation_evidence}}

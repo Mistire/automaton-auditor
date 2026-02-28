@@ -22,7 +22,7 @@ class JudicialOpinion(BaseModel):
     """An opinion from a single judge on a single rubric criterion."""
     judge: Literal["Prosecutor", "Defense", "TechLead"]
     criterion_id: str
-    score: int = Field(ge=0, le=35, description="Score matching the rubric levels (e.g., 0, 7, 12, 15, 20, 21, 25, 35)")
+    score: int = Field(description="Score matching the rubric levels defined in the constitution")
     argument: str = Field(description="Detailed philosophical and technical argument for this score")
     cited_evidence: List[str] = Field(description="List of specific evidence goals/locations referenced in this argument")
 
@@ -33,7 +33,7 @@ class CriterionResult(BaseModel):
     """The final synthesized result for a single rubric dimension."""
     dimension_id: str
     dimension_name: str
-    final_score: int = Field(ge=0, le=35)
+    final_score: int
     judge_opinions: List[JudicialOpinion]
     dissent_summary: Optional[str] = Field(
         default=None, 
