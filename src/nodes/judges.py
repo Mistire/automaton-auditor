@@ -38,6 +38,7 @@ def create_judge_node(judge_persona: str, judge_name: str):
                 evidence_context += f"❌ Missing: {e.goal}\n"
 
         opinions = []
+        print(f"👨‍⚖️ {judge_name} is deliberating on {len(dimensions)} dimensions in parallel...")
         for dim in dimensions:
             prompt = f"""
             You are acting as the {judge_name} in a Digital Courtroom audit.
@@ -84,7 +85,10 @@ def create_judge_node(judge_persona: str, judge_name: str):
                     continue
             
             if opinion:
-                opinions.append(opinion)
+                # [FIX] Force "clean" Pydantic object to avoid serialization warnings in LangGraph
+                # Strip out any extra 'parsed' or internal attributes added by structured_output
+                clean_opinion = JudicialOpinion(**opinion.model_dump())
+                opinions.append(clean_opinion)
             else:
                 # Fallback opinion after all retries fail
                 opinions.append(JudicialOpinion(
@@ -94,7 +98,10 @@ def create_judge_node(judge_persona: str, judge_name: str):
                     argument=f"ERROR: Failed to render opinion after {attempts} attempts. {str(last_error)}",
                     cited_evidence=[]
                 ))
-                
+        
+        # Terminal Summary: Show distinct opinions (first 3 scores)
+        score_trail = " | ".join([f"{o.criterion_id[:10]}: {o.score}/10" for o in opinions[:3]])
+        print(f"⚖️  {judge_name} has delivered {len(opinions)} opinions. (e.g., {score_trail} ...)")
         return {"opinions": opinions}
     
     return judge_node
