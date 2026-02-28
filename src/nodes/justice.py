@@ -45,6 +45,7 @@ def chief_justice_node(state: AgentState) -> Dict:
              if final_score > floor_score:
                  final_score = floor_score
                  overruled_reason = "Rule of Security: Overruled due to unsafe tool engineering patterns."
+                 print(f"  🚨 OVERRULE: {dim_id} capped at 2.0 due to {overruled_reason}")
 
         # Rule of Hallucination: If paths hallucinated, cap report_accuracy
         if dim_id == "report_accuracy":
@@ -52,6 +53,7 @@ def chief_justice_node(state: AgentState) -> Dict:
             if hallucinations and hallucinations.found:
                 final_score = 2.0
                 overruled_reason = "Rule of Hallucination: Overruled because the report cited non-existent files."
+                print(f"  🚨 OVERRULE: {dim_id} capped at 2.0 due to {overruled_reason}")
 
         # Rule of Evidence: Total citations check
         cited_all = []
@@ -59,6 +61,7 @@ def chief_justice_node(state: AgentState) -> Dict:
         if not cited_all and final_score > 5.0:
             final_score = 4.0
             overruled_reason = "Rule of Evidence: Overruled because judges failed to cite specific forensic goals."
+            print(f"  ⚠️ OVERRULE: {dim_id} capped at 4.0 due to {overruled_reason}")
 
         # Final synthesizing
         total_raw_points += final_score

@@ -57,7 +57,13 @@ def repo_investigator(state: AgentState) -> Dict:
                 # Basic keyword extraction (split by space, filter small words)
                 keywords = [w.strip("',.") for w in instr.split() if len(w) > 4][:5]
                 print(f"  ⚠️ No specialized tool for {dim_id}. Falling back to keyword crawl: {keywords}")
-                evidences.extend(repo_tools.file_content_crawler(repo_path, keywords))
+                evidence_results = repo_tools.file_content_crawler(repo_path, keywords)
+                evidences.extend(evidence_results)
+            
+            # Print feedback for each evidence found
+            for e in evidences[-1:] if evidences else []:
+                 status = "✅" if e.found else "❌"
+                 print(f"  {status} Evidence: {e.goal} | Rationale: {e.rationale}")
 
     except Exception as e:
         return {"errors": [f"RepoInvestigator failed: {str(e)}"]}
@@ -132,6 +138,11 @@ def doc_analyst(state: AgentState) -> Dict:
                     goal=dim_id, found=found, content=snippet, location="PDF text search",
                     rationale=f"Adaptive PDF check for keywords: {keywords}", confidence=0.7
                 ))
+            
+            # Print feedback for latest result
+            e = evidences[-1]
+            status = "✅" if e.found else "❌"
+            print(f"  {status} Evidence: {e.goal} | Rationale: {e.rationale}")
 
     except Exception as e:
         return {"errors": [f"DocAnalyst failed: {str(e)}"]}
@@ -224,5 +235,10 @@ def evidence_aggregator(state: AgentState) -> Dict:
             location="Aggregator", rationale=f"Normalized confidence: {avg_confidence:.2f}",
             confidence=avg_confidence
         ))
+
+    print("\n📦 Evidence Aggregator: Consolidating Detective findings...")
+    for e in aggregation_evidence:
+        status = "✅" if e.found else "⚠️"
+        print(f"  {status} {e.goal}: {e.rationale}")
 
     return {"evidences": {"aggregation": aggregation_evidence}}
