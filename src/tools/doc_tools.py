@@ -1,32 +1,44 @@
 import re
 import fitz  # PyMuPDF
-from typing import List, Dict, Tuple, Optional
 from pathlib import Path
+from typing import Dict, List, Tuple
 from src.state import Evidence
+from src.tools.llm_tools import get_llm
 
+
+try:
+    from docling.document_converter import DocumentConverter
+    HAS_DOCLING = True
+except ImportError:
+    HAS_DOCLING = False
 
 def ingest_pdf(pdf_path: str) -> List[Dict[str, str]]:
     """
-    Parses a PDF file and returns a list of chunks (by page).
-    Each chunk is a dictionary with 'text' and 'metadata'.
+    Parses a PDF file using Docling (if available) or PyMuPDF as fallback.
     """
     if not pdf_path or not Path(pdf_path).exists():
         return []
 
-    chunks = []
+    if HAS_DOCLING:
+        try:
+            converter = DocumentConverter()
+            result = converter.convert(pdf_path)
+            markdown_content = result.document.export_to_markdown()
+            return [{"text": markdown_content, "metadata": {"source": str(pdf_path), "engine": "docling"}}]
+        except Exception as e:
+            print(f"Docling error: {e}. Falling back to PyMuPDF.")
+    
+    # Fallback to PyMuPDF
     try:
         doc = fitz.open(pdf_path)
-        for i, page in enumerate(doc):
-            text = page.get_text()
-            chunks.append({
-                "text": text,
-                "metadata": {"page": i + 1, "source": str(pdf_path)}
-            })
+        text = ""
+        for page in doc:
+            text += page.get_text()
         doc.close()
+        return [{"text": text, "metadata": {"source": str(pdf_path), "engine": "fitz"}}]
     except Exception as e:
-        print(f"Error parsing PDF: {e}")
-    
-    return chunks
+        print(f"Error parsing PDF with fitz: {e}")
+        return []
 
 
 def extract_file_paths(text: str) -> List[str]:
@@ -44,31 +56,55 @@ def extract_file_paths(text: str) -> List[str]:
 
 def check_concept_depth(text: str, concept: str) -> Tuple[bool, str]:
     """
-    Assess if a concept is explained with depth or just mentioned as a buzzword.
-    For the interim, we use a simple length/keyword-context heuristic.
-    In the final implementation, this will be an LLM call.
+    Forensic Protocol: Assess if a concept is explained with depth or just mentioned as a buzzword.
+    Uses an LLM to distinguish between 'Keyword Dropping' and 'Substantive Explanation'.
     """
     concept_lower = concept.lower()
     text_lower = text.lower()
     
-    if concept_lower not in text_lower:
+    # Find up to 3 mentions across the whole document
+    import re
+    mentions = [m.start() for m in re.finditer(re.escape(concept_lower), text_lower)][:3]
+    if not mentions:
         return False, "Concept not mentioned."
 
-    # Simple heuristic: is there a significant amount of text around the first mention?
-    start_idx = text_lower.find(concept_lower)
-    context = text[max(0, start_idx - 100) : min(len(text), start_idx + 300)]
+    contexts = []
+    for i, start_idx in enumerate(mentions):
+        ctx = text[max(0, start_idx - 400) : min(len(text), start_idx + 800)]
+        contexts.append(f"MENTION {i+1}:\n...{ctx.strip()}...")
     
-    # If the paragraph containing the concept is long and contains explanatory words
-    explanatory_markers = [
-        "because", "how", "implemented", "architecture", "resolved", "process",
-        "orchestrated", "fan-in", "verdict", "synthesis", "forensic", "dialectical",
-        "metacognition", "optimization", "feedback", "supreme court", "digital courtroom"
-    ]
-    depth_score = sum(1 for marker in explanatory_markers if marker in context.lower())
+    combined_context = "\n\n".join(contexts)
     
-    is_deep = len(context) > 200 and depth_score >= 2
+    prompt = f"""
+    Evaluate if any of the following mentions provide a SUBSTANTIVE ARCHITECTURAL EXPLANATION of the concept '{concept}' within the system, 
+    or if they are all just 'Keyword Dropping'.
+
+    CONTEXT FROM REPORT:
+    \"\"\"
+    {combined_context}
+    \"\"\"
+
+    CRITERIA:
+    - Substantive: Explains implementation logic, system flow (how A connects to B), or architectural rationale. Even a clear description of how the concept is realized in the code counts.
+    - Keyword Dropping: Listed only in a feature list, mentioned as a buzzword, or used without explaining its role or implementation.
+
+    RESPONSE FORMAT:
+    Return only a JSON object: 
+    {{"is_substantive": bool, "rationale": "one sentence summary"}}
+    """
     
-    return is_deep, context
+    try:
+        llm = get_llm(temperature=0.0)
+        # We use a simple JSON parser since we don't want to complicate this tool with Pydantic yet
+        import json
+        response = llm.invoke(prompt)
+        # Basic cleanup of LLM response if it includes markdown blocks
+        clean_content = response.content.replace("```json", "").replace("```", "").strip()
+        data = json.loads(clean_content)
+        
+        return data.get("is_substantive", False), data.get("rationale", "No rationale provided.")
+    except Exception as e:
+        return False, f"LLM Depth Verification failed: {str(e)}"
 
 
 def extract_images_from_pdf(pdf_path: str) -> List[str]:

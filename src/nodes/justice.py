@@ -1,141 +1,97 @@
 import datetime
 from typing import Dict, List
+import json
 from src.state import AgentState, JudicialOpinion, CriterionResult, AuditReport
-
 
 def chief_justice_node(state: AgentState) -> Dict:
     """
-    Supreme Court Node: Synthesizes a final verdict from the conflicting
-    opinions of the parallel judges using deterministic Python logic.
-    
-    Implements:
-    - Rule of Security (Overrides effort)
-    - Rule of Evidence (Fact supremacy over opinion)
-    - Rule of Functionality (Weights Tech Lead's architectural judgment)
-    - Dissent summary for high-variance criteria
+    Supreme Court Node: Implements the 'Judicial Validation Overlay'.
+    Deterministic Python logic validates LLM-suggested scores against forensic facts.
     """
     opinions = state.opinions
     dimensions = state.rubric_dimensions
     evidences = state.evidences
     repo_url = state.repo_url
 
-    print(f"⚖️ Chief Justice Node: Synthesizing verdict for {repo_url}")
+    print(f"⚖️ Swarm Validation Overlay: {repo_url}")
+    print("DEBUG: JUSTICE_NODE_V3_ACTIVE")
     
     results = []
+    total_raw_points = 0
+    total_possible_points = 0
     
     for dim in dimensions:
         dim_id = dim["id"]
         dim_opinions = [o for o in opinions if o.criterion_id == dim_id]
-        
-        if not dim_opinions:
-            continue
+        if not dim_opinions: continue
             
         prosecutor = next((o for o in dim_opinions if o.judge == "Prosecutor"), None)
-        defense = next((o for o in dim_opinions if o.judge == "Defense"), None)
         tech_lead = next((o for o in dim_opinions if o.judge == "TechLead"), None)
         
-        scores = [o.score for o in dim_opinions]
-        avg_score = sum(scores) / len(scores)
-        variance = max(scores) - min(scores)
+        avg_llm_score = sum(o.score for o in dim_opinions) / len(dim_opinions)
+        final_score = avg_llm_score
         
-        # ── DETERMINISTIC PROTOCOLS (New Rubric v3.0) ─────────────────
+        # 2. ── JUDICIAL VALIDATION OVERLAY (Python Protocol) ───────────
+        overruled_reason = None
         
-        final_score = avg_score
-        dissent_summary = None
-        remediation = tech_lead.argument if tech_lead else "Standard mitigation required."
-        
-        # 1. Rule of Security (CAP AT 3)
-        # If any security forensics or judge flags confirmed flaws
+        # Rule of Security: CAP AT Level 1 (2/10) if raw OS system or API keys found
         safe_tooling = next((e for e in evidences.get("repo", []) if e.goal == "safe_tool_engineering"), None)
+        if (safe_tooling and not safe_tooling.found) or (prosecutor and "security" in prosecutor.argument.lower()):
+             floor_score = 2.0 # Level 1 on 1-10 scale
+             if final_score > floor_score:
+                 final_score = floor_score
+                 overruled_reason = "Rule of Security: Overruled due to unsafe tool engineering patterns."
+
+        # Rule of Hallucination: If paths hallucinated, cap report_accuracy
+        if dim_id == "report_accuracy":
+            hallucinations = next((e for e in evidences.get("doc", []) if e.goal == "path_hallucinations_detected"), None)
+            if hallucinations and hallucinations.found:
+                final_score = 2.0
+                overruled_reason = "Rule of Hallucination: Overruled because the report cited non-existent files."
+
+        # Rule of Evidence: Total citations check
+        cited_all = []
+        for o in dim_opinions: cited_all.extend(o.cited_evidence)
+        if not cited_all and final_score > 5.0:
+            final_score = 4.0
+            overruled_reason = "Rule of Evidence: Overruled because judges failed to cite specific forensic goals."
+
+        # Final synthesizing
+        total_raw_points += final_score
+        total_possible_points += 10 # Each dim is now out of 10
         
-        # Refined trigger: Must have a security keyword AND a critical score/negligence charge
-        is_security_flaw = prosecutor and prosecutor.score < 15 and any(word in prosecutor.argument.lower() for word in ["security", "negligence", "unsafe", "raw shell", "os.system"])
-        
-        if is_security_flaw or (safe_tooling and not safe_tooling.found):
-            print(f"  🚨 Security Override triggered for {dim_id}")
-            final_score = min(final_score, 3) 
-            remediation = f"CRITICAL SECURITY FIX REQUIRED: {prosecutor.argument if prosecutor else 'Unsafe tool usage detected.'}"
-        
-        # 2. Rule of Functionality (Tech Lead Highest Weight for Orchestration)
-        if dim_id == "graph_orchestration" and tech_lead:
-            print(f"  🏗️ Functionality Weight: Tech Lead judgment prioritized for {dim_id}")
-            final_score = tech_lead.score
-            
-        # 3. Rule of Evidence (Fact Supremacy)
-        agg_evidence = evidences.get("aggregation", [])
-        doc_evidence = evidences.get("doc", [])
-        completeness = next((e for e in agg_evidence if e.goal == "evidence_completeness"), None)
-        hallucinations = next((e for e in doc_evidence if e.goal == "path_hallucinations_detected"), None)
-        
-        if defense and defense.score > 21:
-             if (completeness and not completeness.found) or (hallucinations and hallucinations.found):
-                print(f"  ⚖️ Evidence Supremacy: Overruling Defense for {dim_id} due to detected hallucinations/missing code.")
-                final_score = min(final_score, tech_lead.score if tech_lead else 21)
+        # Meaningful variance on 1-10 scale
+        variance = max(o.score for o in dim_opinions) - min(o.score for o in dim_opinions)
+        dissent = overruled_reason or (f"Variance: {variance}/10" if len(dim_opinions) > 1 and variance > 2 else None)
 
-        # 4. Map to Rubric Levels (Rounding to nearest valid level)
-        levels = dim.get("levels", {})
-        if levels:
-            score_values = [v.get("score", 0) for v in levels.values()]
-            if score_values:
-                final_score = min(score_values, key=lambda x: abs(x - final_score))
+        results.append(CriterionResult(
+            dimension_id=dim_id,
+            dimension_name=dim.get("name", "Unknown"),
+            final_score=int(round(final_score)),
+            judge_opinions=dim_opinions,
+            dissent_summary=dissent,
+            remediation=tech_lead.argument if tech_lead else "Standard mitigation required."
+        ))
 
-        # 5. Dissent Summary (Required for Score Variance > 2 in 1-5 scale, or > 10 in 0-35 scale)
-        if variance > 10:
-            dissent_summary = (
-                f"Judicial conflict detected. Prosecutor argued for {prosecutor.score if prosecutor else 'N/A'} "
-                f"citing technical gaps, while Defense pushed for {defense.score if defense else 'N/A'} highlighting design intent."
-            )
-
-        # 6. 'No Exchange' Logic (Challenge Spec Optimization)
-        is_no_exchange = (final_score == 0) and any("exchange" in k.lower() for k in levels.keys())
-
-        results.append({
-            "dimension_id": dim_id,
-            "dimension_name": dim.get("name", "Unknown"),
-            "final_score": int(final_score),
-            "judge_opinions": dim_opinions,
-            "dissent_summary": dissent_summary,
-            "remediation": remediation,
-            "max_score": max([v.get("score", 0) for v in levels.values()]) if levels else 35,
-            "is_no_exchange": is_no_exchange
-        })
-
-    # ── Final Report Assembly ──────────────────────────────────────────
-    
-    valid_results = [r for r in results if not r["is_no_exchange"]]
-    total_raw_points = sum(r["final_score"] for r in results)
-    total_possible_points = sum(r["max_score"] for r in valid_results)
-    
-    overall_percentage = (sum(r["final_score"] for r in valid_results) / total_possible_points * 100) if total_possible_points > 0 else 0
+    overall_percentage = (total_raw_points / total_possible_points * 100) if total_possible_points > 0 else 0
     
     exec_summary = (
-        f"The Automaton Auditor Swarm has delivered its verdict for {repo_url}. "
-        f"Final Grade: {total_raw_points}/{total_possible_points} ({overall_percentage:.1f}%). "
-        "The court analyzed evidence across parallel detective branches and synthesized findings through a dialectical judicial process."
+        f"The Swarm has delivered its verdict for {repo_url}.\n"
+        f"Final Score: {round(total_raw_points, 1)} / {total_possible_points} ({overall_percentage:.1f}%).\n"
+        "Audit Protocol: All dimensions have been normalized to a 1-10 scale for clarity. "
+        "The Judicial Validation Overlay ensures that architectural and security rules override LLM optimism."
     )
-
-    criterion_results = [
-        CriterionResult(
-            dimension_id=r["dimension_id"],
-            dimension_name=r["dimension_name"],
-            final_score=r["final_score"],
-            judge_opinions=r["judge_opinions"],
-            dissent_summary=r["dissent_summary"],
-            remediation=r["remediation"]
-        ) for r in results
-    ]
 
     report = AuditReport(
         repo_url=repo_url,
         executive_summary=exec_summary,
         overall_score=overall_percentage,
-        criteria=criterion_results,
-        remediation_plan="\n".join([f"### {r['dimension_name']}\n{r['remediation']}" for r in results]),
+        criteria=results,
+        remediation_plan="\n".join([f"### {r.dimension_name}\n{r.remediation}" for r in results]),
         timestamp=datetime.datetime.now().isoformat()
     )
     
     save_report_to_file(report, total_possible_points)
-    
     return {"final_report": report}
 
 

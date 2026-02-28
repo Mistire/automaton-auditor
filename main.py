@@ -68,10 +68,49 @@ def run_audit(repo_url: str, pdf_path: str = ""):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python main.py <GITHUB_REPO_URL> [PDF_PATH]")
-        sys.exit(1)
+    import argparse
+    parser = argparse.ArgumentParser(description="Automaton Auditor")
+    parser.add_argument("--repo_url", required=True, help="GitHub Repository URL")
+    parser.add_argument("--pdf_path", default="", help="Path to architectural PDF report")
+    parser.add_argument("--local_repo_path", default="", help="Optional: Path to already cloned local repository")
     
-    repo_url = sys.argv[1]
-    pdf_path = sys.argv[2] if len(sys.argv) > 2 else ""
-    run_audit(repo_url, pdf_path)
+    args = parser.parse_args()
+    
+    # Update state handling in run_audit to respect local_repo_path
+    def run_audit_local(repo_url, pdf_path, local_path):
+        rubric_path = os.path.join(os.path.dirname(__file__), "rubric", "week2_rubric.json")
+        with open(rubric_path, "r") as f:
+            rubric_data = json.load(f)
+
+        initial_state: AgentState = {
+            "repo_url": repo_url,
+            "pdf_path": pdf_path,
+            "local_repo_path": local_path,
+            "rubric_dimensions": rubric_data.get("dimensions", []),
+            "evidences": {},
+            "opinions": [],
+            "final_report": None,
+            "errors": []
+        }
+        print(f"\n🚀 Starting Adaptive Auditor Swarm on: {repo_url}")
+        result = graph.invoke(initial_state)
+        
+        if result.get("errors"):
+            print("\n❌ Errors encountered:")
+            for err in result["errors"]:
+                print(f"  - {err}")
+
+        # ... printing results logic ...
+        all_evidences = result.get("evidences", {})
+        for source, evidence_list in all_evidences.items():
+            print(f"\n📍 {source.upper()} ANALYSIS")
+            for e in evidence_list:
+                status = "✅ FOUND" if e.found else "❌ MISSING"
+                print(f"  [{e.confidence:>3.0%}] {status:<8} | {e.goal}")
+                print(f"      Rationale: {e.rationale}")
+        
+        if result.get("final_report"):
+            report = result["final_report"]
+            print(f"\n🏆 FINAL SCORE: {report.overall_score:.1f}%")
+
+    run_audit_local(args.repo_url, args.pdf_path, args.local_repo_path)
